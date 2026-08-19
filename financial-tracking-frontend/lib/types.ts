@@ -44,3 +44,24 @@ export interface Transaction {
 }
 
 export type TimeRange = 'week' | 'month' | 'ytd';
+
+export type ExpenseFrequency = 'Monthly' | 'Yearly' | 'Quarterly' | 'Weekly' | 'Daily' | 'Single';
+export type ExpenseType = 'Fixed' | 'Variable';
+
+export interface Expense {
+  expenseId?: number;
+  name: string;
+  amount: number;
+  frequency: ExpenseFrequency;
+  expenseType: ExpenseType;
+  startDate?: string | Date | null;
+}
+
+export interface Income {
+  incomeId?: number;
+  salary: number;
+  salaryTaxRate: number;
+  bonus: number;
+  bonusTaxRate: number;
+  bonusPayoutDate: string | Date | null;
+}

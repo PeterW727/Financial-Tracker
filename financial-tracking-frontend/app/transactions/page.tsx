@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect, useMemo } from 'react';
+import { Suspense, useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { fetchTransactions } from '@/lib/api';
 import { Transaction } from '@/lib/types';
@@ -8,10 +8,8 @@ import { isSpending, isIncome, absAmount } from '@/lib/transactionUtils';
 import { 
   ArrowLeft, 
   Search, 
-  Filter, 
   Calendar, 
   Tag, 
-  ArrowUpDown,
   TrendingDown,
   TrendingUp,
   CreditCard,
@@ -22,7 +20,8 @@ import {
   Home,
   ChevronLeft,
   ChevronRight,
-  MoreHorizontal
+  MoreHorizontal,
+  DollarSign
 } from 'lucide-react';
 import Link from 'next/link';
 import { TimeRange } from '@/lib/types';
@@ -52,8 +51,19 @@ function TransactionsContent() {
   const [typeFilter, setTypeFilter] = useState<TransactionType>(initialType);
   
   // Date range state
-  const [timeRange, setTimeRange] = useState<TimeRange | 'all'>('all');
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const range = searchParams.get('range') as TimeRange | null;
+  const initialTimeRange = (range && (range === 'week' || range === 'month' || range === 'ytd')) ? range : 'all';
+  const [timeRange, setTimeRange] = useState<TimeRange | 'all'>(initialTimeRange);
+  
+  const baseDateStr = searchParams.get('baseDate');
+  const initialCurrentDate = useMemo(() => {
+    if (baseDateStr) {
+      const d = new Date(baseDateStr);
+      if (!isNaN(d.getTime())) return d;
+    }
+    return new Date();
+  }, [baseDateStr]);
+  const [currentDate, setCurrentDate] = useState(initialCurrentDate);
   
   // Filter states from URL
   const initialDate = searchParams.get('date') || '';
@@ -62,18 +72,40 @@ function TransactionsContent() {
   const [dateFilter, setDateFilter] = useState(initialDate);
   const [categoryFilter, setCategoryFilter] = useState(initialCategory);
 
+  const isFirstRender = useRef(true);
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    // Keep local state in sync if URL changes externally (e.g. browser back button)
     const range = searchParams.get('range') as TimeRange | null;
     if (range && (range === 'week' || range === 'month' || range === 'ytd')) {
-      setTimeRange(range);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTimeRange(prev => prev !== range ? range : prev);
     }
     
     const baseDate = searchParams.get('baseDate');
     if (baseDate) {
       const parsedDate = new Date(baseDate);
       if (!isNaN(parsedDate.getTime())) {
-        setCurrentDate(parsedDate);
+        setCurrentDate(prev => prev.getTime() !== parsedDate.getTime() ? parsedDate : prev);
       }
+    }
+
+    const date = searchParams.get('date');
+    if (date !== null) {
+      setDateFilter(prev => prev !== date ? date : prev);
+    }
+
+    const cat = searchParams.get('category');
+    if (cat !== null) {
+      setCategoryFilter(prev => prev !== cat ? cat : prev);
+    }
+
+    const type = searchParams.get('type') as TransactionType | null;
+    if (type && (type === 'all' || type === 'spending' || type === 'income')) {
+      setTypeFilter(prev => prev !== type ? type : prev);
     }
   }, [searchParams]);
 
@@ -93,10 +125,10 @@ function TransactionsContent() {
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
-      const matchesSearch = t.description.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                           t.category.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = (t.description || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                           (t.category && t.category.toLowerCase().includes(searchTerm.toLowerCase()));
       
-      if (ignoreAutopay && ( t.description === 'AUTOPAY PAYMENT - THANK YOU' || t.description.includes('AMERICAN EXPRESS ACH PMT'))) {
+      if (ignoreAutopay && ( (t.description || '') === 'AUTOPAY PAYMENT - THANK YOU' || (t.description || '').includes('AMERICAN EXPRESS ACH PMT'))) {
         return false;
       }
 
@@ -104,8 +136,10 @@ function TransactionsContent() {
       if (dateFilter) {
         matchesDate = t.date === dateFilter;
       } else if (timeRange !== 'all') {
-        const tDate = new Date(t.date + 'T00:00:00');
-        if (timeRange === 'week') {
+        const tDate = new Date((t.date || '') + 'T00:00:00');
+        if (isNaN(tDate.getTime())) {
+          matchesDate = false;
+        } else if (timeRange === 'week') {
           const start = new Date(currentDate);
           const day = start.getDay();
           const diff = start.getDate() - day + (day === 0 ? -6 : 1);
@@ -137,7 +171,7 @@ function TransactionsContent() {
   }, [transactions, searchTerm, dateFilter, categoryFilter, ignoreAutopay, timeRange, currentDate, typeFilter]);
 
   const categories = useMemo(() => {
-    const cats = new Set(transactions.map(t => t.category));
+    const cats = new Set(transactions.map(t => t.category).filter(Boolean));
     return Array.from(cats).sort();
   }, [transactions]);
 

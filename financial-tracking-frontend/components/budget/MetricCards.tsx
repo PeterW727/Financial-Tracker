@@ -7,6 +7,7 @@ interface MetricCardsProps {
   targetSavingsRate: number;
   monthlyNetIncome: number;
   totalExpenses: number;
+  totalPlannedExpenses: number;
 }
 
 export default function MetricCards({
@@ -14,7 +15,8 @@ export default function MetricCards({
   savingsRate,
   targetSavingsRate,
   monthlyNetIncome,
-  totalExpenses
+  totalExpenses,
+  totalPlannedExpenses
 }: MetricCardsProps) {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -51,7 +53,13 @@ export default function MetricCards({
       bgColor: 'bg-indigo-50 dark:bg-indigo-900/20',
     },
     {
-      title: 'Total Expenses',
+      title: 'Total Planned Expenses',
+      value: formatCurrency(totalPlannedExpenses),
+      icon: <TrendingDown className="text-blue-400" size={20} />,
+      bgColor: 'bg-blue-50 dark:bg-blue-900/20',
+    },
+    {
+      title: 'Actual Expenses',
       value: formatCurrency(totalExpenses),
       icon: <TrendingDown className="text-rose-500" size={20} />,
       bgColor: 'bg-rose-50 dark:bg-rose-900/20',
@@ -59,7 +67,7 @@ export default function MetricCards({
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
       {metrics.map((metric, index) => (
         <div key={index} className="bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800">
           <div className="flex justify-between items-start mb-4">

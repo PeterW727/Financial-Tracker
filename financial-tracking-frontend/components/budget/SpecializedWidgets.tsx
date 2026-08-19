@@ -1,19 +1,35 @@
 import React, { useState } from 'react';
-import { Home, CreditCard, Train, Info } from 'lucide-react';
-import { RecurringExpense } from '@/lib/types';
+import { Home, CreditCard, Train } from 'lucide-react';
+import { Expense } from '@/lib/types';
 
 interface HousingBreakdownProps {
-  totalRent: number;
-  perPersonSplit: number;
-  utilities: number;
+  expenses: Expense[];
 }
 
 interface SubscriptionManagerProps {
-  subscriptions: RecurringExpense[];
+  subscriptions: Expense[];
 }
 
-export function HousingBreakdown({ totalRent, perPersonSplit, utilities }: HousingBreakdownProps) {
+export function HousingBreakdown({ expenses }: HousingBreakdownProps) {
   const formatCurrency = (val: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+  
+  const housingExpenses = expenses.filter(e => 
+    e.name.toLowerCase().includes('rent') || 
+    e.name.toLowerCase().includes('utility') || 
+    e.name.toLowerCase().includes('utilities')
+  );
+
+  const recurringRentSum = housingExpenses
+    .filter(e => e.name.toLowerCase().includes('rent') && e.frequency !== 'Single')
+    .reduce((acc, e) => acc + e.amount, 0);
+  
+  const singleHousingExpenses = housingExpenses.filter(e => e.frequency === 'Single');
+  
+  const recurringUtilities = housingExpenses
+    .filter(e => (e.name.toLowerCase().includes('utility') || e.name.toLowerCase().includes('utilities')) && e.frequency !== 'Single')
+    .reduce((acc, e) => acc + e.amount, 0);
+
+  const perPersonRent = recurringRentSum;
   
   return (
     <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 h-full">
@@ -23,28 +39,31 @@ export function HousingBreakdown({ totalRent, perPersonSplit, utilities }: Housi
       </div>
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <span className="text-sm text-zinc-500">Total Rent</span>
-          <span className="text-sm font-bold">{formatCurrency(totalRent)}</span>
+          <span className="text-sm text-zinc-500">Rent (Per Person)</span>
+          <span className="text-sm font-bold">{formatCurrency(perPersonRent)}</span>
         </div>
-        <div className="flex justify-between items-center p-3 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            Your Split
-            <div className="group relative">
-              <Info size={14} className="text-zinc-400" />
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-32 p-2 bg-zinc-900 text-white text-[10px] rounded shadow-lg z-10">
-                Calculated per-person split
-              </div>
+        
+        {singleHousingExpenses.map(e => (
+          <div key={e.expenseId || e.name} className="flex justify-between items-center p-2 bg-amber-50 dark:bg-amber-900/20 rounded border border-amber-100 dark:border-amber-900/30">
+            <div className="flex flex-col">
+              <span className="text-xs font-medium text-amber-800 dark:text-amber-200">{e.name}</span>
+              <span className="text-[10px] text-amber-600 dark:text-amber-400">
+                Single expense ({e.startDate ? new Date(e.startDate).toLocaleDateString('en-US', { month: 'long' }) : 'N/A'})
+              </span>
             </div>
+            <span className="text-xs font-bold text-amber-700 dark:text-amber-300">{formatCurrency(e.amount)}</span>
           </div>
-          <span className="text-sm font-bold text-blue-600">{formatCurrency(perPersonSplit)}</span>
-        </div>
+        ))}
+
         <div className="flex justify-between items-center">
           <span className="text-sm text-zinc-500">Utilities (Est.)</span>
-          <span className="text-sm font-medium">{formatCurrency(utilities)}</span>
+          <span className="text-sm font-medium">{formatCurrency(recurringUtilities)}</span>
         </div>
         <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
           <span className="text-sm font-semibold">Total Monthly Cost</span>
-          <span className="text-base font-bold">{formatCurrency(perPersonSplit + utilities)}</span>
+          <span className="text-base font-bold text-blue-600">
+            {formatCurrency(perPersonRent + recurringUtilities + singleHousingExpenses.reduce((acc, e) => acc + e.amount, 0))}
+          </span>
         </div>
       </div>
     </div>
@@ -53,7 +72,18 @@ export function HousingBreakdown({ totalRent, perPersonSplit, utilities }: Housi
 
 export function SubscriptionManager({ subscriptions }: SubscriptionManagerProps) {
   const formatCurrency = (val: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
-  const total = subscriptions.reduce((acc, s) => acc + s.amount, 0);
+  
+  const getMonthly = (s: Expense) => {
+    if (s.frequency === 'Monthly') return s.amount;
+    if (s.frequency === 'Yearly') return s.amount / 12;
+    return s.amount;
+  };
+
+  const getYearly = (s: Expense) => {
+    if (s.frequency === 'Yearly') return s.amount;
+    if (s.frequency === 'Monthly') return s.amount * 12;
+    return s.amount * 12;
+  };
 
   return (
     <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 h-full">
@@ -61,17 +91,31 @@ export function SubscriptionManager({ subscriptions }: SubscriptionManagerProps)
         <CreditCard size={20} className="text-purple-500" />
         Subscription Manager
       </div>
-      <div className="space-y-3 max-h-[180px] overflow-y-auto pr-2 custom-scrollbar">
+      <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+        <div className="grid grid-cols-3 text-[10px] font-bold text-zinc-400 uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-800 pb-2">
+          <span>Subscription</span>
+          <span className="text-right">Monthly</span>
+          <span className="text-right">Yearly</span>
+        </div>
         {subscriptions.map((sub) => (
-          <div key={sub.id} className="flex justify-between items-center">
-            <span className="text-sm text-zinc-600 dark:text-zinc-400">{sub.name}</span>
-            <span className="text-sm font-medium">{formatCurrency(sub.amount)}</span>
+          <div key={sub.expenseId || sub.name} className="grid grid-cols-3 items-center py-1">
+            <span className="text-sm text-zinc-600 dark:text-zinc-400 truncate pr-2">
+              {sub.name.replace(/^Subscriptions?\s*-\s*/i, '')}
+            </span>
+            <span className={`text-sm text-right ${sub.frequency === 'Monthly' ? 'font-bold text-zinc-900 dark:text-zinc-50' : 'text-zinc-500'}`}>
+              {formatCurrency(getMonthly(sub))}
+            </span>
+            <span className={`text-sm text-right ${sub.frequency === 'Yearly' ? 'font-bold text-zinc-900 dark:text-zinc-50' : 'text-zinc-500'}`}>
+              {formatCurrency(getYearly(sub))}
+            </span>
           </div>
         ))}
       </div>
       <div className="mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
-        <span className="text-sm font-semibold">Monthly Total</span>
-        <span className="text-base font-bold text-purple-600">{formatCurrency(total)}</span>
+        <span className="text-sm font-semibold">Total Monthly</span>
+        <span className="text-base font-bold text-purple-600">
+          {formatCurrency(subscriptions.reduce((acc, s) => acc + getMonthly(s), 0))}
+        </span>
       </div>
     </div>
   );

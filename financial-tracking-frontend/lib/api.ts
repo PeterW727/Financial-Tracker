@@ -3,7 +3,9 @@ import {
   BudgetCategory, 
   MonthlyBudget, 
   RecurringExpense, 
-  BudgetProfile 
+  BudgetProfile,
+  Expense,
+  Income
 } from './types';
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
@@ -73,4 +75,32 @@ export async function uploadChase(file: File): Promise<void> {
   if (!response.ok) {
     throw new Error('Failed to upload Chase transactions');
   }
+}
+
+export async function fetchExpenses(): Promise<Expense[]> {
+  return handleResponse<Expense[]>(await fetch(`${API_BASE_URL}/api/expenses`));
+}
+
+export async function saveExpense(expense: Expense): Promise<void> {
+  await fetch(`${API_BASE_URL}/api/expenses`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(expense),
+  });
+}
+
+export async function fetchIncome(): Promise<Income[]> {
+  return handleResponse<Income[]>(await fetch(`${API_BASE_URL}/api/income`));
+}
+
+export async function saveIncome(income: Income): Promise<void> {
+  await fetch(`${API_BASE_URL}/api/income`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(income),
+  });
 }

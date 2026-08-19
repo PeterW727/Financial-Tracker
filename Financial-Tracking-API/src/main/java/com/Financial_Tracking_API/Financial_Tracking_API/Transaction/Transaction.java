@@ -1,6 +1,5 @@
 package com.Financial_Tracking_API.Financial_Tracking_API.Transaction;
 
-import com.Financial_Tracking_API.Financial_Tracking_API.Budget.BudgetCategory;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -28,10 +27,6 @@ public class Transaction {
     private String description;
     private Double amount;
     private String category;
-
-    @ManyToOne
-    @JoinColumn(name = "budget_category_id")
-    private BudgetCategory budgetCategory;
 
     @Enumerated(EnumType.STRING)
     private TransactionOrigin transactionOrigin;

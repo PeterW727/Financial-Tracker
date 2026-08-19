@@ -3,45 +3,44 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   fetchTransactions, 
-  fetchMonthlyBudgets, 
-  fetchRecurringExpenses, 
-  fetchBudgetProfile 
+  fetchExpenses, 
+  fetchIncome 
 } from '@/lib/api';
 import { 
   Transaction, 
-  MonthlyBudget, 
-  RecurringExpense, 
-  BudgetProfile 
+  Expense, 
+  Income 
 } from '@/lib/types';
-import { isSpending, isIncome, absAmount } from '@/lib/transactionUtils';
+import { isSpending, absAmount } from '@/lib/transactionUtils';
 import MetricCards from '@/components/budget/MetricCards';
 import BudgetProgress from '@/components/budget/BudgetProgress';
 import ProjectionsChart from '@/components/budget/ProjectionsChart';
 import { HousingBreakdown, SubscriptionManager, CommuterCalculator } from '@/components/budget/SpecializedWidgets';
-import { Loader2, ArrowLeft, LayoutDashboard, List } from 'lucide-react';
+import ExpenseReport from '@/components/budget/ExpenseReport';
+import IncomeReport from '@/components/budget/IncomeReport';
+import { Loader2, ArrowLeft, LayoutDashboard, List, Plus } from 'lucide-react';
 import Link from 'next/link';
 
 export default function BudgetPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [budgets, setBudgets] = useState<MonthlyBudget[]>([]);
-  const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
-  const [profile, setProfile] = useState<BudgetProfile | null>(null);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [incomeRecords, setIncomeRecords] = useState<Income[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showExpenseForm, setShowExpenseForm] = useState(false);
+  const [showIncomeForm, setShowIncomeForm] = useState(false);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (showLoading = true) => {
     try {
-      setLoading(true);
-      const [tData, bData, rData, pData] = await Promise.all([
+      if (showLoading) setLoading(true);
+      const [tData, eData, iData] = await Promise.all([
         fetchTransactions(),
-        fetchMonthlyBudgets(),
-        fetchRecurringExpenses(),
-        fetchBudgetProfile(),
+        fetchExpenses(),
+        fetchIncome(),
       ]);
       setTransactions(tData);
-      setBudgets(bData);
-      setRecurringExpenses(rData);
-      setProfile(pData);
+      setExpenses(eData);
+      setIncomeRecords(iData);
       setError(null);
     } catch (err) {
       console.error(err);
@@ -52,7 +51,8 @@ export default function BudgetPage() {
   }, []);
 
   useEffect(() => {
-    loadData();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData(false); // Initial load, loading state is already true
   }, [loadData]);
 
   // Calculations for Metric Cards
@@ -65,9 +65,34 @@ export default function BudgetPage() {
   const totalExpenses = currentMonthTransactions
     .filter(isSpending)
     .reduce((acc, t) => acc + absAmount(t), 0);
+
+  const currentMonthPlannedExpenses = React.useMemo(() => {
+    const now = new Date();
+    const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    return expenses.filter(e => {
+      if (!e.startDate) return true;
+      const start = new Date(e.startDate);
+      const startMonth = new Date(start.getFullYear(), start.getMonth(), 1);
+      return startMonth <= currentMonth;
+    });
+  }, [expenses]);
+
+  const totalPlannedExpenses = React.useMemo(() => {
+    return currentMonthPlannedExpenses.reduce((acc, e) => {
+      switch (e.frequency) {
+        case 'Monthly': return acc + e.amount;
+        case 'Yearly': return acc + (e.amount / 12);
+        case 'Quarterly': return acc + (e.amount / 3);
+        case 'Weekly': return acc + (e.amount * 4.33);
+        case 'Daily': return acc + (e.amount * 30);
+        default: return acc;
+      }
+    }, 0);
+  }, [currentMonthPlannedExpenses]);
     
-  const netIncome = profile 
-    ? (profile.grossBaseSalary / 12) * (1 - profile.taxRate / 100) 
+  const activeIncome = incomeRecords[0] || null;
+  const netIncome = activeIncome 
+    ? (activeIncome.salary / 12) * (1 - activeIncome.salaryTaxRate / 100) 
     : 0;
 
   const savingsRate = netIncome > 0 ? ((netIncome - totalExpenses) / netIncome) * 100 : 0;
@@ -79,10 +104,33 @@ export default function BudgetPage() {
     let currentBalance = 10841.84; // Starting balance from description
 
     for (let i = 0; i < months.length; i++) {
+      const year = i < 6 ? 2026 : 2027;
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const monthIndex = monthNames.indexOf(months[i]);
+      const projectionDate = new Date(year, monthIndex, 1);
+
       const isAugust = months[i] === 'Aug';
-      const bonus = isAugust ? 7000 : 0;
+      const bonus = (isAugust && activeIncome) ? activeIncome.bonus * (1 - activeIncome.bonusTaxRate / 100) : 0;
       const monthIncome = netIncome + bonus;
-      const monthExpenses = 4500; // Average expenses
+      
+      const monthExpenses = expenses
+        .filter(e => {
+          if (!e.startDate) return true;
+          const start = new Date(e.startDate);
+          const startMonth = new Date(start.getFullYear(), start.getMonth(), 1);
+          return startMonth <= projectionDate;
+        })
+        .reduce((acc, e) => {
+          switch (e.frequency) {
+            case 'Monthly': return acc + e.amount;
+            case 'Yearly': return acc + (e.amount / 12);
+            case 'Quarterly': return acc + (e.amount / 3);
+            case 'Weekly': return acc + (e.amount * 4.33);
+            case 'Daily': return acc + (e.amount * 30);
+            default: return acc;
+          }
+        }, 0) || 4500;
+
       const savings = monthIncome - monthExpenses;
       currentBalance += savings;
 
@@ -95,7 +143,7 @@ export default function BudgetPage() {
       });
     }
     return data;
-  }, [netIncome]);
+  }, [netIncome, activeIncome, expenses]);
 
   if (loading) {
     return (
@@ -152,9 +200,26 @@ export default function BudgetPage() {
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">Budget Overview</h2>
-          <p className="text-zinc-500 dark:text-zinc-400">Track your budget and future projections.</p>
+        <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div>
+            <h2 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">Budget Overview</h2>
+            <p className="text-zinc-500 dark:text-zinc-400">Track your budget and future projections.</p>
+          </div>
+          <div className="flex gap-3">
+            <button 
+              onClick={() => setShowIncomeForm(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition-colors shadow-sm"
+            >
+              Update Income
+            </button>
+            <button 
+              onClick={() => setShowExpenseForm(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-zinc-900 dark:bg-white dark:text-zinc-900 text-white rounded-xl text-sm font-medium transition-colors shadow-sm"
+            >
+              <Plus size={18} />
+              Add Expense
+            </button>
+          </div>
         </div>
 
       <MetricCards 
@@ -163,11 +228,12 @@ export default function BudgetPage() {
         targetSavingsRate={44.35}
         monthlyNetIncome={netIncome}
         totalExpenses={totalExpenses}
+        totalPlannedExpenses={totalPlannedExpenses}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
         <div className="lg:col-span-1 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
-          <BudgetProgress budgets={budgets} transactions={currentMonthTransactions} />
+          <BudgetProgress expenses={currentMonthPlannedExpenses} />
         </div>
         <div className="lg:col-span-2 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
           <ProjectionsChart data={projectionData} />
@@ -175,10 +241,26 @@ export default function BudgetPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <HousingBreakdown totalRent={4870} perPersonSplit={2435} utilities={150} />
-        <SubscriptionManager subscriptions={recurringExpenses} />
+        <HousingBreakdown 
+          expenses={currentMonthPlannedExpenses}
+        />
+        <SubscriptionManager subscriptions={currentMonthPlannedExpenses.filter(e => e.name.toLowerCase().includes('subscription') && e.frequency !== 'Single')} />
         <CommuterCalculator />
       </div>
+
+      {showExpenseForm && (
+        <ExpenseReport 
+          onClose={() => setShowExpenseForm(false)} 
+          onSuccess={loadData} 
+        />
+      )}
+      {showIncomeForm && (
+        <IncomeReport 
+          onClose={() => setShowIncomeForm(false)} 
+          onSuccess={loadData} 
+          initialData={activeIncome}
+        />
+      )}
       </main>
     </div>
   );

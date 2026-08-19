@@ -97,11 +97,11 @@ const ExpenseTable = ({ title, items, isOneTime = false }: { title: string, item
 export default function BudgetedExpensesCard({ expenses }: BudgetProgressProps) {
   const allRecurring = expenses.filter(e => e.frequency !== 'Single');
   
-  const totalFixed = expenses
+  const totalFixed = allRecurring
     .filter(e => e.expenseType === 'Fixed')
     .reduce((acc, e) => acc + getMonthlyEquivalent(e), 0);
   
-  const totalDiscretionary = expenses
+  const totalDiscretionary = allRecurring
     .filter(e => e.expenseType === 'Variable')
     .reduce((acc, e) => acc + getMonthlyEquivalent(e), 0);
   

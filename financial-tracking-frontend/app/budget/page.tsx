@@ -94,11 +94,19 @@ export default function BudgetPage() {
       const monthBudgetedExpenses = expenses.filter(e => {
         if (!e.startDate) return true;
         const start = new Date(e.startDate);
-        return new Date(start.getFullYear(), start.getMonth(), 1) <= date;
+        const startMonth = new Date(start.getFullYear(), start.getMonth(), 1);
+        if (e.frequency === 'Single') {
+          return startMonth.getTime() === date.getTime();
+        }
+        return startMonth <= date;
       });
 
       const rentBudgeted = monthBudgetedExpenses
         .filter(e => e.name.toLowerCase().includes('rent'))
+        .reduce((acc, e) => acc + e.amount, 0);
+
+      const recurringRentBudgeted = monthBudgetedExpenses
+        .filter(e => e.name.toLowerCase().includes('rent') && e.frequency !== 'Single')
         .reduce((acc, e) => acc + e.amount, 0);
       
       const otherFixedBudgeted = monthBudgetedExpenses
@@ -110,6 +118,7 @@ export default function BudgetPage() {
             case 'Quarterly': return acc + (e.amount / 3);
             case 'Weekly': return acc + (e.amount * 4.33);
             case 'Daily': return acc + (e.amount * 30);
+            case 'Single': return acc + e.amount;
             default: return acc;
           }
         }, 0);
@@ -123,11 +132,43 @@ export default function BudgetPage() {
             case 'Quarterly': return acc + (e.amount / 3);
             case 'Weekly': return acc + (e.amount * 4.33);
             case 'Daily': return acc + (e.amount * 30);
+            case 'Single': return acc + e.amount;
             default: return acc;
           }
         }, 0);
 
-      const totalExpensesBudgeted = rentBudgeted + otherFixedBudgeted + discretionaryBudgeted;
+      // Requirement: the total monthly cost should just be the recurring rent payments and not include the one time only payments
+      // We interpret this as Total Expenses = Recurring Rent + Recurring Budgeted Expenses + Recurring Discretionary
+      const recurringOtherFixedBudgeted = monthBudgetedExpenses
+        .filter(e => e.expenseType === 'Fixed' && !e.name.toLowerCase().includes('rent') && e.frequency !== 'Single')
+        .reduce((acc, e) => {
+          switch (e.frequency) {
+            case 'Monthly': return acc + e.amount;
+            case 'Yearly': return acc + (e.amount / 12);
+            case 'Quarterly': return acc + (e.amount / 3);
+            case 'Weekly': return acc + (e.amount * 4.33);
+            case 'Daily': return acc + (e.amount * 30);
+            default: return acc;
+          }
+        }, 0);
+
+      const recurringDiscretionaryBudgeted = monthBudgetedExpenses
+        .filter(e => e.expenseType === 'Variable' && e.frequency !== 'Single')
+        .reduce((acc, e) => {
+          switch (e.frequency) {
+            case 'Monthly': return acc + e.amount;
+            case 'Yearly': return acc + (e.amount / 12);
+            case 'Quarterly': return acc + (e.amount / 3);
+            case 'Weekly': return acc + (e.amount * 4.33);
+            case 'Daily': return acc + (e.amount * 30);
+            default: return acc;
+          }
+        }, 0);
+
+      const totalExpensesBudgeted = recurringRentBudgeted + recurringOtherFixedBudgeted + recurringDiscretionaryBudgeted;
+      
+      // For Savings Balance, we still need to subtract EVERYTHING including one-time
+      const totalAllBudgetedExpenses = rentBudgeted + otherFixedBudgeted + discretionaryBudgeted;
 
       // Expenses - Actual
       const monthTransactions = transactions.filter(t => {
@@ -148,7 +189,12 @@ export default function BudgetPage() {
       const netIncomeBudgeted = totalIncome - totalExpensesBudgeted;
       const netIncomeActual = totalIncome - totalExpensesActual;
       
-      currentBalance += (view === 'Budgeted' ? netIncomeBudgeted : netIncomeActual);
+      // For Savings Balance, we MUST include all expenses (recurring + one-time)
+      const balanceImpact = view === 'Budgeted' 
+        ? (totalIncome - totalAllBudgetedExpenses) 
+        : (totalIncome - totalExpensesActual);
+      
+      currentBalance += balanceImpact;
 
       results.push({
         month: `${months[i]}-${year.toString().slice(-2)}`,
@@ -187,8 +233,8 @@ export default function BudgetPage() {
       { label: 'Income', values: results.map(() => ''), isHeader: true },
       { label: 'Net Base Salary', values: results.map(r => r.income.netBaseSalary), isCurrency: true },
       { label: 'Net Bonus', values: results.map(r => r.income.netBonus), isCurrency: true },
-      { label: 'Investment', values: results.map(r => r.income.investment), isCurrency: true },
-      { label: 'Tax Refund', values: results.map(r => r.income.taxRefund), isCurrency: true },
+      // { label: 'Investment', values: results.map(r => r.income.investment), isCurrency: true },
+      // { label: 'Tax Refund', values: results.map(r => r.income.taxRefund), isCurrency: true },
       { label: 'Total Income', values: results.map(r => r.income.total), isCurrency: true, isBold: true },
     ];
 
@@ -197,7 +243,7 @@ export default function BudgetPage() {
       { label: 'Rent', values: results.map(r => r.budgeted.rent), isCurrency: true },
       { label: 'Budgeted Expenses', values: results.map(r => r.budgeted.expenses), isCurrency: true },
       { label: 'Discretionary', values: results.map(r => r.budgeted.discretionary), isCurrency: true },
-      { label: 'Total Expenses', values: results.map(r => r.budgeted.total), isCurrency: true, isBold: true },
+      { label: 'Total Monthly Cost', values: results.map(r => r.budgeted.total), isCurrency: true, isBold: true },
       { label: 'space', values: [] },
       { label: 'Net Income', values: results.map(r => r.budgeted.netIncome), isCurrency: true, isBold: true },
       { label: 'space', values: [] },

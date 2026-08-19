@@ -42,9 +42,9 @@ export default function IncomeSummaryTable({ income }: IncomeSummaryTableProps) 
     { label: 'Income Per Month', gross: formatCurrency(monthlyIncomeGross), net: formatCurrency(monthlyIncomeNet) },
     { label: 'Bonus Amount', gross: formatCurrency(bonusGross), net: formatCurrency(bonusNet) },
     { label: 'Tax Rate (for bonus)', gross: `${income.bonusTaxRate}%`, net: `${income.bonusTaxRate}%` },
-    { label: 'Bonus Payout Date', gross: income.bonusPayoutDate ? new Date(income.bonusPayoutDate).toLocaleDateString() : 'N/A', net: income.bonusPayoutDate ? new Date(income.bonusPayoutDate).toLocaleDateString() : 'N/A' },
-    { label: 'Total Salary', gross: formatCurrency(totalSalaryGross), net: formatCurrency(totalSalaryNet) },
-    { label: 'Total Tax', gross: '-', net: formatCurrency(totalTax) },
+    { label: 'Bonus Payout Date', gross: '-', net: income.bonusPayoutDate ? new Date(income.bonusPayoutDate).toLocaleDateString() : 'N/A' },
+    { label: 'Total Salary', gross: formatCurrency(totalSalaryGross), net: formatCurrency(totalSalaryNet), isBold: true },
+    { label: 'Total Tax', gross: '-', net: formatCurrency(totalTax), isBold: true },
   ];
 
   return (
@@ -61,8 +61,8 @@ export default function IncomeSummaryTable({ income }: IncomeSummaryTableProps) 
           </thead>
           <tbody className="divide-y divide-zinc-50 dark:divide-zinc-800">
             {rows.map((row, i) => (
-              <tr key={i} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
-                <td className="py-3 font-medium text-zinc-700 dark:text-zinc-300">{row.label}</td>
+              <tr key={i} className={`hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors ${(row as any).isBold ? 'font-bold' : ''}`}>
+                <td className={`py-3 font-medium text-zinc-700 dark:text-zinc-300 ${(row as any).isBold ? 'text-zinc-900 dark:text-zinc-50' : ''}`}>{row.label}</td>
                 <td className="py-3 text-zinc-600 dark:text-zinc-400">{row.gross}</td>
                 <td className="py-3 text-zinc-600 dark:text-zinc-400">{row.net}</td>
               </tr>

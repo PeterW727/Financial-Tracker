@@ -27,4 +27,15 @@ public class IncomeController {
             return ResponseEntity.badRequest().body("Error creating income record");
         }
     }
+
+
+    @PostMapping("/update")
+    public ResponseEntity<?> updateIncome(@RequestBody IncomeRecord income) {
+        try{
+            incomeService.updateIncome(IncomeRecord.toObject(income));
+            return ResponseEntity.ok().build();
+        }catch (Exception e){
+            return ResponseEntity.badRequest().body("Error updating income record");
+        }
+    }
 }

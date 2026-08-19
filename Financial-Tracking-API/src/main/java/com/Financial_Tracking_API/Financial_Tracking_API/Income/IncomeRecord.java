@@ -11,7 +11,9 @@ public record IncomeRecord(
     Double salaryTaxRate,
     Double bonus,
     Double bonusTaxRate,
-    LocalDate bonusPayoutDate
+    LocalDate bonusPayoutDate,
+    LocalDate startDate,
+    LocalDate endDate
 ) {
 
     public static IncomeRecord fromObject(Income i) {
@@ -22,6 +24,8 @@ public record IncomeRecord(
                 .bonus(i.getBonus())
                 .bonusTaxRate(i.getBonusTaxRate())
                 .bonusPayoutDate(i.getBonusPayoutDate())
+                .startDate(i.getStartDate())
+                .endDate(i.getEndDate() != null ? i.getEndDate() : null)
                 .build();
     }
     public static Income toObject(IncomeRecord i) {
@@ -32,6 +36,8 @@ public record IncomeRecord(
                 .bonus(i.bonus())
                 .bonusTaxRate(i.bonusTaxRate())
                 .bonusPayoutDate(i.bonusPayoutDate())
+                .startDate(i.startDate())
+                .endDate(i.endDate() != null ? i.endDate() : null)
                 .build();
     }
 }

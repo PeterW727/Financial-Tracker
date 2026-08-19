@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.util.Date;
 
 @NoArgsConstructor
 @AllArgsConstructor
@@ -22,5 +23,7 @@ public class Income {
     private Double bonus;
     private Double bonusTaxRate;
     private LocalDate bonusPayoutDate;
+    private LocalDate startDate;
+    private LocalDate endDate;
 
 }

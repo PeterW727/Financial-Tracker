@@ -17,4 +17,8 @@ public class IncomeService {
     public void createIncome(Income income) {
         incomeRepository.save(income);
     }
+
+    public void updateIncome(Income object) {
+       incomeRepository.save(object);
+    }
 }

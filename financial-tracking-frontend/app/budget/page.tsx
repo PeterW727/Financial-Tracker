@@ -12,9 +12,9 @@ import {
   Income 
 } from '@/lib/types';
 import { isSpending, absAmount } from '@/lib/transactionUtils';
-import MetricCards from '@/components/budget/MetricCards';
-import BudgetProgress from '@/components/budget/BudgetProgress';
-import ProjectionsChart from '@/components/budget/ProjectionsChart';
+import BudgetedExpensesCard from '@/components/budget/BudgetedExpensesCard';
+import IncomeSummaryTable from '@/components/budget/IncomeSummaryTable';
+import CashFlowProjectionsTable from '@/components/budget/CashFlowProjectionsTable';
 import { HousingBreakdown, SubscriptionManager, CommuterCalculator } from '@/components/budget/SpecializedWidgets';
 import ExpenseReport from '@/components/budget/ExpenseReport';
 import IncomeReport from '@/components/budget/IncomeReport';
@@ -29,6 +29,7 @@ export default function BudgetPage() {
   const [error, setError] = useState<string | null>(null);
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [showIncomeForm, setShowIncomeForm] = useState(false);
+  const [view, setView] = useState<'Budgeted' | 'Actual'>('Budgeted');
 
   const loadData = useCallback(async (showLoading = true) => {
     try {
@@ -55,17 +56,6 @@ export default function BudgetPage() {
     loadData(false); // Initial load, loading state is already true
   }, [loadData]);
 
-  // Calculations for Metric Cards
-  const currentMonthTransactions = transactions.filter(t => {
-    const d = new Date(t.date);
-    const now = new Date();
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  });
-
-  const totalExpenses = currentMonthTransactions
-    .filter(isSpending)
-    .reduce((acc, t) => acc + absAmount(t), 0);
-
   const currentMonthPlannedExpenses = React.useMemo(() => {
     const now = new Date();
     const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -76,50 +66,43 @@ export default function BudgetPage() {
       return startMonth <= currentMonth;
     });
   }, [expenses]);
-
-  const totalPlannedExpenses = React.useMemo(() => {
-    return currentMonthPlannedExpenses.reduce((acc, e) => {
-      switch (e.frequency) {
-        case 'Monthly': return acc + e.amount;
-        case 'Yearly': return acc + (e.amount / 12);
-        case 'Quarterly': return acc + (e.amount / 3);
-        case 'Weekly': return acc + (e.amount * 4.33);
-        case 'Daily': return acc + (e.amount * 30);
-        default: return acc;
-      }
-    }, 0);
-  }, [currentMonthPlannedExpenses]);
     
   const activeIncome = incomeRecords[0] || null;
   const netIncome = activeIncome 
     ? (activeIncome.salary / 12) * (1 - activeIncome.salaryTaxRate / 100) 
     : 0;
 
-  const savingsRate = netIncome > 0 ? ((netIncome - totalExpenses) / netIncome) * 100 : 0;
-  
-  // Projection Data Generation
-  const projectionData = React.useMemo(() => {
-    const data = [];
+  // Projection Data for Table
+  const tableData = React.useMemo(() => {
     const months = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
-    let currentBalance = 10841.84; // Starting balance from description
+    const monthNamesShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    const results = [];
+    let currentBalance = 10841.84;
 
     for (let i = 0; i < months.length; i++) {
       const year = i < 6 ? 2026 : 2027;
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const monthIndex = monthNames.indexOf(months[i]);
-      const projectionDate = new Date(year, monthIndex, 1);
-
-      const isAugust = months[i] === 'Aug';
-      const bonus = (isAugust && activeIncome) ? activeIncome.bonus * (1 - activeIncome.bonusTaxRate / 100) : 0;
-      const monthIncome = netIncome + bonus;
+      const monthIndex = monthNamesShort.indexOf(months[i]);
+      const date = new Date(year, monthIndex, 1);
       
-      const monthExpenses = expenses
-        .filter(e => {
-          if (!e.startDate) return true;
-          const start = new Date(e.startDate);
-          const startMonth = new Date(start.getFullYear(), start.getMonth(), 1);
-          return startMonth <= projectionDate;
-        })
+      // Income
+      const isAugust = months[i] === 'Aug';
+      const netBonus = (isAugust && activeIncome) ? activeIncome.bonus * (1 - activeIncome.bonusTaxRate / 100) : 0;
+      const totalIncome = netIncome + netBonus; // Plus investment/tax refund if we had them
+
+      // Expenses - Budgeted
+      const monthBudgetedExpenses = expenses.filter(e => {
+        if (!e.startDate) return true;
+        const start = new Date(e.startDate);
+        return new Date(start.getFullYear(), start.getMonth(), 1) <= date;
+      });
+
+      const rentBudgeted = monthBudgetedExpenses
+        .filter(e => e.name.toLowerCase().includes('rent'))
+        .reduce((acc, e) => acc + e.amount, 0);
+      
+      const otherFixedBudgeted = monthBudgetedExpenses
+        .filter(e => e.expenseType === 'Fixed' && !e.name.toLowerCase().includes('rent'))
         .reduce((acc, e) => {
           switch (e.frequency) {
             case 'Monthly': return acc + e.amount;
@@ -129,21 +112,116 @@ export default function BudgetPage() {
             case 'Daily': return acc + (e.amount * 30);
             default: return acc;
           }
-        }, 0) || 4500;
+        }, 0);
+        
+      const discretionaryBudgeted = monthBudgetedExpenses
+        .filter(e => e.expenseType === 'Variable')
+        .reduce((acc, e) => {
+          switch (e.frequency) {
+            case 'Monthly': return acc + e.amount;
+            case 'Yearly': return acc + (e.amount / 12);
+            case 'Quarterly': return acc + (e.amount / 3);
+            case 'Weekly': return acc + (e.amount * 4.33);
+            case 'Daily': return acc + (e.amount * 30);
+            default: return acc;
+          }
+        }, 0);
 
-      const savings = monthIncome - monthExpenses;
-      currentBalance += savings;
+      const totalExpensesBudgeted = rentBudgeted + otherFixedBudgeted + discretionaryBudgeted;
 
-      data.push({
-        month: `${months[i]} ${i < 6 ? '26' : '27'}`,
-        income: monthIncome,
-        expenses: monthExpenses,
-        savingsBalance: currentBalance,
-        bonus: bonus > 0 ? bonus : undefined,
+      // Expenses - Actual
+      const monthTransactions = transactions.filter(t => {
+        const d = new Date(t.date);
+        return d.getMonth() === monthIndex && d.getFullYear() === year;
+      });
+
+      const amexActual = monthTransactions
+        .filter(t => t.transactionOrigin === 'AMEX' && isSpending(t))
+        .reduce((acc, t) => acc + absAmount(t), 0);
+      
+      const chaseActual = monthTransactions
+        .filter(t => t.transactionOrigin === 'CHASE' && isSpending(t))
+        .reduce((acc, t) => acc + absAmount(t), 0);
+      
+      const totalExpensesActual = rentBudgeted + amexActual + chaseActual;
+
+      const netIncomeBudgeted = totalIncome - totalExpensesBudgeted;
+      const netIncomeActual = totalIncome - totalExpensesActual;
+      
+      currentBalance += (view === 'Budgeted' ? netIncomeBudgeted : netIncomeActual);
+
+      results.push({
+        month: `${months[i]}-${year.toString().slice(-2)}`,
+        income: {
+          netBaseSalary: netIncome,
+          netBonus: netBonus,
+          investment: 0,
+          taxRefund: 0,
+          total: totalIncome,
+        },
+        budgeted: {
+          rent: rentBudgeted,
+          expenses: otherFixedBudgeted,
+          discretionary: discretionaryBudgeted,
+          total: totalExpensesBudgeted,
+          netIncome: netIncomeBudgeted,
+          savingsBalance: currentBalance,
+        },
+        actual: {
+          rent: rentBudgeted,
+          amex: amexActual,
+          chase: chaseActual,
+          total: totalExpensesActual,
+          budget: totalExpensesBudgeted,
+          percentOfBudget: totalExpensesBudgeted > 0 ? (totalExpensesActual / totalExpensesBudgeted) * 100 : 0,
+          savedOver: totalExpensesBudgeted - totalExpensesActual,
+          netIncome: netIncomeActual,
+          percentSaved: totalIncome > 0 ? (netIncomeActual / totalIncome) * 100 : 0,
+        }
       });
     }
-    return data;
-  }, [netIncome, activeIncome, expenses]);
+
+    const monthLabels = results.map(r => r.month);
+
+    const incomeRows = [
+      { label: 'Income', values: results.map(() => ''), isHeader: true },
+      { label: 'Net Base Salary', values: results.map(r => r.income.netBaseSalary), isCurrency: true },
+      { label: 'Net Bonus', values: results.map(r => r.income.netBonus), isCurrency: true },
+      { label: 'Investment', values: results.map(r => r.income.investment), isCurrency: true },
+      { label: 'Tax Refund', values: results.map(r => r.income.taxRefund), isCurrency: true },
+      { label: 'Total Income', values: results.map(r => r.income.total), isCurrency: true, isBold: true },
+    ];
+
+    const budgetedExpenseRows = [
+      { label: 'Expense', values: results.map(() => ''), isHeader: true },
+      { label: 'Rent', values: results.map(r => r.budgeted.rent), isCurrency: true },
+      { label: 'Budgeted Expenses', values: results.map(r => r.budgeted.expenses), isCurrency: true },
+      { label: 'Discretionary', values: results.map(r => r.budgeted.discretionary), isCurrency: true },
+      { label: 'Total Expenses', values: results.map(r => r.budgeted.total), isCurrency: true, isBold: true },
+      { label: 'space', values: [] },
+      { label: 'Net Income', values: results.map(r => r.budgeted.netIncome), isCurrency: true, isBold: true },
+      { label: 'space', values: [] },
+      { label: 'Savings Balance', values: results.map(r => r.budgeted.savingsBalance), isCurrency: true, isBold: true },
+    ];
+
+    const actualExpenseRows = [
+      { label: 'Expense', values: results.map(() => ''), isHeader: true },
+      { label: 'Rent', values: results.map(r => r.actual.rent), isCurrency: true },
+      { label: 'Amex Gold', values: results.map(r => r.actual.amex), isCurrency: true },
+      { label: 'Chase', values: results.map(r => r.actual.chase), isCurrency: true },
+      { label: 'Total Expenses', values: results.map(r => r.actual.total), isCurrency: true, isBold: true },
+      { label: 'Budget', values: results.map(r => r.actual.budget), isCurrency: true },
+      { label: '% of Budget', values: results.map(r => r.actual.percentOfBudget), isPercentage: true },
+      { label: '$ Saved/Over', values: results.map(r => r.actual.savedOver), isCurrency: true },
+      { label: 'Net Income', values: results.map(r => r.actual.netIncome), isCurrency: true, isBold: true },
+      { label: '% Saved', values: results.map(r => r.actual.percentSaved), isPercentage: true },
+    ];
+
+    return {
+      months: monthLabels,
+      rows: view === 'Budgeted' ? [...incomeRows, { label: 'space', values: [] }, ...budgetedExpenseRows] : [...incomeRows, { label: 'space', values: [] }, ...actualExpenseRows]
+    };
+  }, [view, expenses, transactions, activeIncome, netIncome]);
 
   if (loading) {
     return (
@@ -205,39 +283,58 @@ export default function BudgetPage() {
             <h2 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">Budget Overview</h2>
             <p className="text-zinc-500 dark:text-zinc-400">Track your budget and future projections.</p>
           </div>
-          <div className="flex gap-3">
-            <button 
-              onClick={() => setShowIncomeForm(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition-colors shadow-sm"
-            >
-              Update Income
-            </button>
-            <button 
-              onClick={() => setShowExpenseForm(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-zinc-900 dark:bg-white dark:text-zinc-900 text-white rounded-xl text-sm font-medium transition-colors shadow-sm"
-            >
-              <Plus size={18} />
-              Add Expense
-            </button>
+          <div className="flex flex-col sm:flex-row gap-3 items-center">
+            <div className="flex bg-zinc-200/50 dark:bg-zinc-800 p-1 rounded-xl mr-2">
+              <button
+                onClick={() => setView('Budgeted')}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  view === 'Budgeted' 
+                    ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-50 shadow-sm' 
+                    : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+                }`}
+              >
+                Budgeted
+              </button>
+              <button
+                onClick={() => setView('Actual')}
+                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  view === 'Actual' 
+                    ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-50 shadow-sm' 
+                    : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+                }`}
+              >
+                Actual
+              </button>
+            </div>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setShowIncomeForm(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition-colors shadow-sm"
+              >
+                Update Income
+              </button>
+              <button 
+                onClick={() => setShowExpenseForm(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-zinc-900 dark:bg-white dark:text-zinc-900 text-white rounded-xl text-sm font-medium transition-colors shadow-sm"
+              >
+                <Plus size={18} />
+                Add Expense
+              </button>
+            </div>
           </div>
         </div>
 
-      <MetricCards 
-        totalSavings={projectionData[projectionData.length - 1].savingsBalance}
-        savingsRate={savingsRate}
-        targetSavingsRate={44.35}
-        monthlyNetIncome={netIncome}
-        totalExpenses={totalExpenses}
-        totalPlannedExpenses={totalPlannedExpenses}
-      />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <IncomeSummaryTable income={activeIncome} />
+        <BudgetedExpensesCard expenses={currentMonthPlannedExpenses} />
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-        <div className="lg:col-span-1 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
-          <BudgetProgress expenses={currentMonthPlannedExpenses} />
-        </div>
-        <div className="lg:col-span-2 bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
-          <ProjectionsChart data={projectionData} />
-        </div>
+      <div className="mb-8">
+        <CashFlowProjectionsTable 
+          view={view}
+          months={tableData.months}
+          data={tableData.rows}
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

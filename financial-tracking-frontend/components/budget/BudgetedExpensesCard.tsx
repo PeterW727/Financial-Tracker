@@ -94,8 +94,19 @@ const ExpenseTable = ({ title, items, isOneTime = false }: { title: string, item
   </div>
 );
 
-export default function BudgetProgress({ expenses }: BudgetProgressProps) {
+export default function BudgetedExpensesCard({ expenses }: BudgetProgressProps) {
   const allRecurring = expenses.filter(e => e.frequency !== 'Single');
+  
+  const totalFixed = expenses
+    .filter(e => e.expenseType === 'Fixed')
+    .reduce((acc, e) => acc + getMonthlyEquivalent(e), 0);
+  
+  const totalDiscretionary = expenses
+    .filter(e => e.expenseType === 'Variable')
+    .reduce((acc, e) => acc + getMonthlyEquivalent(e), 0);
+  
+  const totalTotal = totalFixed + totalDiscretionary;
+
   const subExpenses = allRecurring.filter(e => e.name.toLowerCase().includes('subscription'));
   const otherRecurring = allRecurring.filter(e => !e.name.toLowerCase().includes('subscription'));
 
@@ -113,10 +124,29 @@ export default function BudgetProgress({ expenses }: BudgetProgressProps) {
   const oneTimeExpenses = expenses.filter(e => e.frequency === 'Single');
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-xl font-bold mb-6 text-zinc-900 dark:text-zinc-50">All Expenses</h2>
-      <ExpenseTable title="Recurring Expenses" items={recurringExpenses} />
-      <ExpenseTable title="One-time Expenses" items={oneTimeExpenses} isOneTime />
+    <div className="space-y-6">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">Budgeted Expenses</h2>
+        <div className="grid grid-cols-3 gap-4 mt-2 py-3 border-y border-zinc-100 dark:border-zinc-800">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Total Fixed</p>
+            <p className="text-lg font-bold text-zinc-900 dark:text-zinc-50">{formatCurrency(totalFixed)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Total Discretionary</p>
+            <p className="text-lg font-bold text-zinc-900 dark:text-zinc-50">{formatCurrency(totalDiscretionary)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">Total Total</p>
+            <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(totalTotal)}</p>
+          </div>
+        </div>
+      </div>
+      
+      <div className="space-y-4">
+        <ExpenseTable title="Recurring Expenses" items={recurringExpenses} />
+        <ExpenseTable title="One-time Expenses" items={oneTimeExpenses} isOneTime />
+      </div>
     </div>
   );
 }

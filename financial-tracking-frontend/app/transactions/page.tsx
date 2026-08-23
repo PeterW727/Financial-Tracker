@@ -18,10 +18,13 @@ import {
   Zap,
   Car,
   Home,
-  ChevronLeft,
-  ChevronRight,
-  MoreHorizontal,
-  DollarSign
+  ChevronLeft, 
+  ChevronRight, 
+  MoreHorizontal, 
+  DollarSign,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import Link from 'next/link';
 import { TimeRange } from '@/lib/types';
@@ -44,6 +47,19 @@ function TransactionsContent() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [ignoreAutopay, setIgnoreAutopay] = useState(true);
+  
+  // Sorting state
+  const [sortBy, setSortBy] = useState<'date' | 'category' | 'amount'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  
+  const handleSort = (column: 'date' | 'category' | 'amount') => {
+    if (sortBy === column) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortOrder('desc');
+    }
+  };
   
   // Transaction type filter
   type TransactionType = 'all' | 'spending' | 'income';
@@ -124,7 +140,7 @@ function TransactionsContent() {
   }, []);
 
   const filteredTransactions = useMemo(() => {
-    return transactions.filter(t => {
+    const filtered = transactions.filter(t => {
       const matchesSearch = (t.description || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
                            (t.category && t.category.toLowerCase().includes(searchTerm.toLowerCase()));
       
@@ -168,7 +184,21 @@ function TransactionsContent() {
       
       return matchesSearch && matchesDate && matchesCategory && matchesType;
     });
-  }, [transactions, searchTerm, dateFilter, categoryFilter, ignoreAutopay, timeRange, currentDate, typeFilter]);
+
+    return [...filtered].sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === 'date') {
+        comparison = (a.date || '').localeCompare(b.date || '');
+      } else if (sortBy === 'category') {
+        comparison = (a.category || '').localeCompare(b.category || '');
+      } else if (sortBy === 'amount') {
+        const aVal = isIncome(a) ? absAmount(a) : -absAmount(a);
+        const bVal = isIncome(b) ? absAmount(b) : -absAmount(b);
+        comparison = aVal - bVal;
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+  }, [transactions, searchTerm, dateFilter, categoryFilter, ignoreAutopay, timeRange, currentDate, typeFilter, sortBy, sortOrder]);
 
   const categories = useMemo(() => {
     const cats = new Set(transactions.map(t => t.category).filter(Boolean));
@@ -459,10 +489,46 @@ function TransactionsContent() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/50">
-                    <th className="px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Date</th>
+                    <th 
+                      className="px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors group"
+                      onClick={() => handleSort('date')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Date
+                        {sortBy === 'date' ? (
+                          sortOrder === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
+                        ) : (
+                          <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-100" />
+                        )}
+                      </div>
+                    </th>
                     <th className="px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Description</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Category</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider text-right">Amount</th>
+                    <th 
+                      className="px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors group"
+                      onClick={() => handleSort('category')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Category
+                        {sortBy === 'category' ? (
+                          sortOrder === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
+                        ) : (
+                          <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-100" />
+                        )}
+                      </div>
+                    </th>
+                    <th 
+                      className="px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider text-right cursor-pointer hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors group"
+                      onClick={() => handleSort('amount')}
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        Amount
+                        {sortBy === 'amount' ? (
+                          sortOrder === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />
+                        ) : (
+                          <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-100" />
+                        )}
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">

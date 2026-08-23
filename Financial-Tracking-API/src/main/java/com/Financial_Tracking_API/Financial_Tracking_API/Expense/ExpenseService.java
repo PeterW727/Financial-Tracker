@@ -21,4 +21,8 @@ public class ExpenseService {
     public void updateExpense(Expense expense) {
         expenseRepository.save(expense);
     }
+
+    public void deleteExpense(Integer expense) {
+       expenseRepository.deleteById(expense);
+    }
 }

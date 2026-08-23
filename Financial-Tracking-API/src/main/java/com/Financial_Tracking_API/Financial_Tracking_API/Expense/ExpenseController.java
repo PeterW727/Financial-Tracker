@@ -38,4 +38,14 @@ public class ExpenseController {
             return ResponseEntity.badRequest().body("Error updating expense record");
         }
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteExpense(@PathVariable Integer id) {
+        try{
+            expenseService.deleteExpense(id);
+            return ResponseEntity.ok().build();
+        }catch (Exception e){
+            return ResponseEntity.badRequest().body("Error deleting expense record");
+        }
+    }
 }

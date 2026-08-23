@@ -1,30 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 import { Expense, ExpenseFrequency, ExpenseType } from '@/lib/types';
-import { saveExpense } from '@/lib/api';
+import { saveExpense, updateExpense } from '@/lib/api';
 
 interface ExpenseReportProps {
   onClose: () => void;
   onSuccess: () => void;
+  initialData?: Expense | null;
 }
 
-export default function ExpenseReport({ onClose, onSuccess }: ExpenseReportProps) {
-  const [formData, setFormData] = useState<Partial<Expense>>({
+export default function ExpenseReport({ onClose, onSuccess, initialData }: ExpenseReportProps) {
+  const [formData, setFormData] = useState<Partial<Expense>>(initialData || {
     name: '',
     amount: 0,
     frequency: 'Monthly',
     expenseType: 'Fixed',
-    startDate: new Date().toISOString().split('T')[0]
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: null
   });
+  const [isStillRecurring, setIsStillRecurring] = useState(!initialData?.endDate);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isStillRecurring) {
+      setFormData(prev => ({ ...prev, endDate: null }));
+    }
+  }, [isStillRecurring]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     try {
-      await saveExpense(formData as Expense);
+      if (initialData?.expenseId) {
+        await updateExpense({ ...formData, expenseId: initialData.expenseId } as Expense);
+      } else {
+        await saveExpense(formData as Expense);
+      }
       onSuccess();
       onClose();
     } catch (err) {
@@ -102,6 +115,30 @@ export default function ExpenseReport({ onClose, onSuccess }: ExpenseReportProps
                 value={formData.startDate ? (typeof formData.startDate === 'string' ? formData.startDate.split('T')[0] : new Date(formData.startDate).toISOString().split('T')[0]) : ''}
                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                 className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+            <div className="col-span-2">
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  type="checkbox"
+                  id="stillRecurring"
+                  checked={isStillRecurring}
+                  onChange={(e) => setIsStillRecurring(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 bg-zinc-100 border-zinc-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="stillRecurring" className="text-sm font-medium">Ongoing expense (no end date)</label>
+              </div>
+              <label className={`block text-sm font-medium mb-1 ${isStillRecurring ? 'text-zinc-400' : ''}`}>End Date</label>
+              <input
+                type="date"
+                disabled={isStillRecurring}
+                value={formData.endDate ? (typeof formData.endDate === 'string' ? formData.endDate.split('T')[0] : new Date(formData.endDate).toISOString().split('T')[0]) : ''}
+                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                className={`w-full px-3 py-2 border rounded-lg outline-none transition-colors ${
+                  isStillRecurring 
+                    ? 'bg-zinc-100 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-800 text-zinc-400 cursor-not-allowed' 
+                    : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-blue-500'
+                }`}
               />
             </div>
           </div>

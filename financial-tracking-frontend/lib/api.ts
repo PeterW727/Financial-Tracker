@@ -104,3 +104,31 @@ export async function saveIncome(income: Income): Promise<void> {
     body: JSON.stringify(income),
   });
 }
+
+export async function updateIncome(income: Income): Promise<void> {
+  if (!income.incomeId) throw new Error('Income ID is required for update');
+  await fetch(`${API_BASE_URL}/api/income/update`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(income),
+  });
+}
+
+export async function updateExpense(expense: Expense): Promise<void> {
+  if (!expense.expenseId) throw new Error('Expense ID is required for update');
+  await fetch(`${API_BASE_URL}/api/expenses/update`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(expense),
+  });
+}
+
+export async function deleteExpense(expenseId: number): Promise<void> {
+  await fetch(`${API_BASE_URL}/api/expenses/${expenseId}`, {
+    method: 'DELETE',
+  });
+}

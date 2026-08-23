@@ -55,6 +55,7 @@ export interface Expense {
   frequency: ExpenseFrequency;
   expenseType: ExpenseType;
   startDate?: string | Date | null;
+  endDate?: string | Date | null;
 }
 
 export interface Income {
@@ -64,4 +65,6 @@ export interface Income {
   bonus: number;
   bonusTaxRate: number;
   bonusPayoutDate: string | Date | null;
+  startDate: string | Date;
+  endDate?: string | Date | null;
 }

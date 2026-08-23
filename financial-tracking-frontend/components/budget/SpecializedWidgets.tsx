@@ -29,6 +29,8 @@ export function HousingBreakdown({ expenses }: HousingBreakdownProps) {
     .filter(e => (e.name.toLowerCase().includes('utility') || e.name.toLowerCase().includes('utilities')) && e.frequency !== 'Single')
     .reduce((acc, e) => acc + e.amount, 0);
 
+  const singleHousingSum = singleHousingExpenses.reduce((acc, e) => acc + e.amount, 0);
+  
   const perPersonRent = recurringRentSum;
   
   return (
@@ -62,7 +64,7 @@ export function HousingBreakdown({ expenses }: HousingBreakdownProps) {
         <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
           <span className="text-sm font-semibold">Total Monthly Cost</span>
           <span className="text-base font-bold text-blue-600">
-            {formatCurrency(perPersonRent + recurringUtilities)}
+            {formatCurrency(perPersonRent + recurringUtilities + singleHousingSum)}
           </span>
         </div>
       </div>

@@ -13,7 +13,8 @@ public record ExpenseRecord(
         Double amount,
         String frequency,
         String expenseType,
-        LocalDate startDate
+        LocalDate startDate,
+        LocalDate endDate
 ) {
     public static ExpenseRecord fromObject(Expense expense) {
         return ExpenseRecord.builder()
@@ -23,6 +24,7 @@ public record ExpenseRecord(
                 .frequency(expense.getFrequency().getDisplayName())
                 .expenseType(expense.getExpenseType().getDisplayName())
                 .startDate(expense.getStartDate())
+                .endDate(expense.getEndDate())
                 .build();
     }
 
@@ -34,6 +36,7 @@ public record ExpenseRecord(
                 .frequency(Frequency.fromDisplayName(expenseRecord.frequency))
                 .expenseType(ExpenseType.fromDisplayName(expenseRecord.expenseType))
                 .startDate(expenseRecord.startDate())
+                .endDate(expenseRecord.endDate())
                 .build();
     }
 }

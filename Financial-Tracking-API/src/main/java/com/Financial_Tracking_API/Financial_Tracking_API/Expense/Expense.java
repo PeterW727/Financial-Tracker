@@ -23,6 +23,5 @@ public class Expense {
     @Enumerated(EnumType.STRING)
     private ExpenseType expenseType;
     private LocalDate startDate;
-
-
+    private LocalDate endDate;
 }

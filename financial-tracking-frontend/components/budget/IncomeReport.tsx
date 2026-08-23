@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { X, Save } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Save, Calendar } from 'lucide-react';
 import { Income } from '@/lib/types';
-import { saveIncome } from '@/lib/api';
+import { saveIncome, updateIncome } from '@/lib/api';
 
 interface IncomeReportProps {
   onClose: () => void;
@@ -15,17 +15,30 @@ export default function IncomeReport({ onClose, onSuccess, initialData }: Income
     salaryTaxRate: 0,
     bonus: 0,
     bonusTaxRate: 0,
-    bonusPayoutDate: null
+    bonusPayoutDate: null,
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: null
   });
+  const [isCurrentlyInRole, setIsCurrentlyInRole] = useState(!initialData?.endDate);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isCurrentlyInRole) {
+      setFormData(prev => ({ ...prev, endDate: null }));
+    }
+  }, [isCurrentlyInRole]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     try {
-      await saveIncome(formData as Income);
+      if (initialData?.incomeId) {
+        await updateIncome({ ...formData, incomeId: initialData.incomeId } as Income);
+      } else {
+        await saveIncome(formData as Income);
+      }
       onSuccess();
       onClose();
     } catch (err) {
@@ -69,6 +82,42 @@ export default function IncomeReport({ onClose, onSuccess, initialData }: Income
                 value={formData.salaryTaxRate || ''}
                 onChange={(e) => setFormData({ ...formData, salaryTaxRate: parseFloat(e.target.value) })}
                 className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+
+            <div className="col-span-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+              <label className="block text-sm font-medium mb-1">Start Date</label>
+              <input
+                type="date"
+                required
+                value={formData.startDate ? (typeof formData.startDate === 'string' ? formData.startDate.split('T')[0] : new Date(formData.startDate).toISOString().split('T')[0]) : ''}
+                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+
+            <div className="col-span-2">
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  type="checkbox"
+                  id="currentlyInRole"
+                  checked={isCurrentlyInRole}
+                  onChange={(e) => setIsCurrentlyInRole(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 bg-zinc-100 border-zinc-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="currentlyInRole" className="text-sm font-medium">I am still currently in this role</label>
+              </div>
+              <label className={`block text-sm font-medium mb-1 ${isCurrentlyInRole ? 'text-zinc-400' : ''}`}>End Date</label>
+              <input
+                type="date"
+                disabled={isCurrentlyInRole}
+                value={formData.endDate ? (typeof formData.endDate === 'string' ? formData.endDate.split('T')[0] : new Date(formData.endDate).toISOString().split('T')[0]) : ''}
+                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                className={`w-full px-3 py-2 border rounded-lg outline-none transition-colors ${
+                  isCurrentlyInRole 
+                    ? 'bg-zinc-100 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-800 text-zinc-400 cursor-not-allowed' 
+                    : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 focus:ring-2 focus:ring-blue-500'
+                }`}
               />
             </div>
 

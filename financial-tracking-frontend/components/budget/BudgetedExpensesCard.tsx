@@ -16,11 +16,11 @@ const formatCurrency = (amount: number) => {
 const getMonthlyEquivalent = (e: Expense) => {
   switch (e.frequency) {
     case 'Monthly': return e.amount;
-    case 'Yearly': return e.amount / 12;
-    case 'Quarterly': return e.amount / 3;
+    case 'Yearly': return e.amount;
+    case 'Quarterly': return e.amount;
     case 'Weekly': return e.amount * 4.33;
     case 'Daily': return e.amount * 30;
-    case 'Single': return e.amount; // Treat single as full amount for that month
+    case 'Single': return e.amount;
     default: return e.amount;
   }
 };

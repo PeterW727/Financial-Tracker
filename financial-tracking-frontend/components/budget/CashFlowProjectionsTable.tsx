@@ -1,12 +1,13 @@
 import React from 'react';
 
-interface ProjectionRow {
+export interface ProjectionRow {
   label: string;
   values: (number | string)[];
   isHeader?: boolean;
   isBold?: boolean;
   isPercentage?: boolean;
   isCurrency?: boolean;
+  colorLogic?: 'percentage' | 'savings';
 }
 
 interface CashFlowProjectionsTableProps {
@@ -71,19 +72,35 @@ export default function CashFlowProjectionsTable({ view, months, data }: CashFlo
                   `}>
                     {row.label}
                   </td>
-                  {row.values.map((val, j) => (
-                    <td 
-                      key={j} 
-                      className={`
-                        py-2 px-4 text-center border-b border-zinc-50 dark:border-zinc-800
-                        ${row.isHeader ? 'font-bold' : ''}
-                        ${row.isBold ? 'font-bold text-zinc-900 dark:text-zinc-50' : 'text-zinc-600 dark:text-zinc-400'}
-                        ${typeof val === 'number' && val < 0 ? 'text-rose-500' : ''}
-                      `}
-                    >
-                      {formatValue(val, row.isCurrency, row.isPercentage)}
-                    </td>
-                  ))}
+                  {row.values.map((val, j) => {
+                    let colorClass = '';
+                    if (row.isBold) {
+                      colorClass = 'font-bold text-zinc-900 dark:text-zinc-50';
+                    } else {
+                      colorClass = 'text-zinc-600 dark:text-zinc-400';
+                    }
+
+                    if (row.colorLogic === 'percentage' && typeof val === 'number') {
+                      colorClass = val > 100 ? 'text-rose-500 font-medium' : 'text-emerald-500 font-medium';
+                    } else if (row.colorLogic === 'savings' && typeof val === 'number') {
+                      colorClass = val >= 0 ? 'text-emerald-500 font-medium' : 'text-rose-500 font-medium';
+                    } else if (typeof val === 'number' && val < 0) {
+                      colorClass = 'text-rose-500';
+                    }
+
+                    return (
+                      <td 
+                        key={j} 
+                        className={`
+                          py-2 px-4 text-center border-b border-zinc-50 dark:border-zinc-800
+                          ${row.isHeader ? 'font-bold' : ''}
+                          ${colorClass}
+                        `}
+                      >
+                        {formatValue(val, row.isCurrency, row.isPercentage)}
+                      </td>
+                    );
+                  })}
                 </tr>
               );
             })}

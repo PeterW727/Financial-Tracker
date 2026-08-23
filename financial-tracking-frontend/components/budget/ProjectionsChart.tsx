@@ -72,7 +72,7 @@ export default function ProjectionsChart({ data }: ProjectionsChartProps) {
                 border: 'none', 
                 boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' 
               }}
-              formatter={(value: number) => [formatCurrency(value), '']}
+              formatter={(value: any) => [formatCurrency(value as number), '']}
             />
             <Legend 
               verticalAlign="top" 

@@ -14,7 +14,7 @@ import {
 import { isSpending, absAmount } from '@/lib/transactionUtils';
 import BudgetedExpensesCard from '@/components/budget/BudgetedExpensesCard';
 import IncomeSummaryTable from '@/components/budget/IncomeSummaryTable';
-import CashFlowProjectionsTable from '@/components/budget/CashFlowProjectionsTable';
+import CashFlowProjectionsTable, { ProjectionRow } from '@/components/budget/CashFlowProjectionsTable';
 import { HousingBreakdown, SubscriptionManager, CommuterCalculator } from '@/components/budget/SpecializedWidgets';
 import ExpenseReport from '@/components/budget/ExpenseReport';
 import IncomeReport from '@/components/budget/IncomeReport';
@@ -211,15 +211,15 @@ export default function BudgetPage() {
         .filter(t => t.transactionOrigin === 'CHASE' && isSpending(t))
         .reduce((acc, t) => acc + absAmount(t), 0);
       
-      const totalExpensesActual = amexActual + chaseActual;
+      const totalExpensesActual = amexActual + chaseActual + rentBudgeted;
 
       const netIncomeBudgeted = totalIncome - totalExpensesBudgeted;
-      const netIncomeActual = totalIncome - totalExpensesActual - rentBudgeted;
+      const netIncomeActual = totalIncome - totalExpensesActual;
       
       // For Savings Balance, we MUST include all expenses (recurring + one-time)
       const balanceImpact = view === 'Budgeted' 
         ? (totalIncome - totalAllBudgetedExpenses) 
-        : (totalIncome - totalExpensesActual - rentBudgeted);
+        : (totalIncome - totalExpensesActual);
       
       currentBalance += balanceImpact;
 
@@ -245,9 +245,9 @@ export default function BudgetPage() {
           amex: amexActual,
           chase: chaseActual,
           total: totalExpensesActual,
-          budget: totalExpensesBudgeted - rentBudgeted,
-          percentOfBudget: (totalExpensesBudgeted - rentBudgeted) > 0 ? (totalExpensesActual / (totalExpensesBudgeted - rentBudgeted)) * 100 : 0,
-          savedOver: (totalExpensesBudgeted - rentBudgeted) - totalExpensesActual,
+          budget: totalExpensesBudgeted,
+          percentOfBudget: totalExpensesBudgeted > 0 ? (totalExpensesActual / totalExpensesBudgeted) * 100 : 0,
+          savedOver: totalExpensesBudgeted - totalExpensesActual,
           netIncome: netIncomeActual,
           percentSaved: totalIncome > 0 ? (netIncomeActual / totalIncome) * 100 : 0,
         }
@@ -256,7 +256,7 @@ export default function BudgetPage() {
 
     const monthLabels = results.map(r => r.month);
 
-    const incomeRows = [
+    const incomeRows: ProjectionRow[] = [
       { label: 'Income', values: results.map(() => ''), isHeader: true },
       { label: 'Net Base Salary', values: results.map(r => r.income.netBaseSalary), isCurrency: true },
       { label: 'Net Bonus', values: results.map(r => r.income.netBonus), isCurrency: true },
@@ -265,7 +265,7 @@ export default function BudgetPage() {
       { label: 'Total Income', values: results.map(r => r.income.total), isCurrency: true, isBold: true },
     ];
 
-    const budgetedExpenseRows = [
+    const budgetedExpenseRows: ProjectionRow[] = [
       { label: 'Expense', values: results.map(() => ''), isHeader: true },
       { label: 'Rent', values: results.map(r => r.budgeted.rent), isCurrency: true },
       { label: 'Budgeted Expenses', values: results.map(r => r.budgeted.expenses), isCurrency: true },
@@ -277,14 +277,15 @@ export default function BudgetPage() {
       { label: 'Savings Balance', values: results.map(r => r.budgeted.savingsBalance), isCurrency: true, isBold: true },
     ];
 
-    const actualExpenseRows = [
+    const actualExpenseRows: ProjectionRow[] = [
       { label: 'Expense', values: results.map(() => ''), isHeader: true },
+      { label: 'Rent', values: results.map(r => r.actual.rent), isCurrency: true },
       { label: 'Amex Gold', values: results.map(r => r.actual.amex), isCurrency: true },
       { label: 'Chase', values: results.map(r => r.actual.chase), isCurrency: true },
       { label: 'Total Expenses', values: results.map(r => r.actual.total), isCurrency: true, isBold: true },
       { label: 'Budget', values: results.map(r => r.actual.budget), isCurrency: true },
-      { label: '% of Budget', values: results.map(r => r.actual.percentOfBudget), isPercentage: true },
-      { label: '$ Saved/Over', values: results.map(r => r.actual.savedOver), isCurrency: true },
+      { label: '% of Budget', values: results.map(r => r.actual.percentOfBudget), isPercentage: true, colorLogic: 'percentage' },
+      { label: '$ Saved/Over', values: results.map(r => r.actual.savedOver), isCurrency: true, colorLogic: 'savings' },
       { label: 'Net Income', values: results.map(r => r.actual.netIncome), isCurrency: true, isBold: true },
       { label: '% Saved', values: results.map(r => r.actual.percentSaved), isPercentage: true },
     ];
@@ -308,7 +309,7 @@ export default function BudgetPage() {
       <div className="flex flex-col h-[70vh] items-center justify-center gap-4 text-center px-4">
         <p className="text-rose-500 font-medium">{error}</p>
         <button 
-          onClick={loadData}
+          onClick={() => loadData()}
           className="px-4 py-2 bg-zinc-900 text-white dark:bg-zinc-50 dark:text-zinc-900 rounded-lg text-sm font-medium"
         >
           Try Again

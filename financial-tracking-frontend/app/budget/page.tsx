@@ -11,7 +11,7 @@ import {
   Expense, 
   Income 
 } from '@/lib/types';
-import { isSpending, absAmount } from '@/lib/transactionUtils';
+import { isSpending, absAmount, isInternalTransfer } from '@/lib/transactionUtils';
 import BudgetedExpensesCard from '@/components/budget/BudgetedExpensesCard';
 import IncomeSummaryTable from '@/components/budget/IncomeSummaryTable';
 import CashFlowProjectionsTable, { ProjectionRow } from '@/components/budget/CashFlowProjectionsTable';
@@ -204,22 +204,22 @@ export default function BudgetPage() {
       });
 
       const amexActual = monthTransactions
-        .filter(t => t.transactionOrigin === 'AMEX' && isSpending(t))
+        .filter(t => t.transactionOrigin === 'AMEX' && isSpending(t) && !isInternalTransfer(t))
         .reduce((acc, t) => acc + absAmount(t), 0);
       
       const chaseActual = monthTransactions
-        .filter(t => t.transactionOrigin === 'CHASE' && isSpending(t))
+        .filter(t => t.transactionOrigin === 'CHASE' && isSpending(t) && !isInternalTransfer(t))
         .reduce((acc, t) => acc + absAmount(t), 0);
       
-      const totalExpensesActual = amexActual + chaseActual + rentBudgeted;
+      const totalExpensesActual = amexActual + chaseActual;
 
       const netIncomeBudgeted = totalIncome - totalExpensesBudgeted;
-      const netIncomeActual = totalIncome - totalExpensesActual;
+      const netIncomeActual = totalIncome - totalExpensesActual - rentBudgeted;
       
       // For Savings Balance, we MUST include all expenses (recurring + one-time)
       const balanceImpact = view === 'Budgeted' 
         ? (totalIncome - totalAllBudgetedExpenses) 
-        : (totalIncome - totalExpensesActual);
+        : (totalIncome - totalExpensesActual - rentBudgeted);
       
       currentBalance += balanceImpact;
 
@@ -279,7 +279,6 @@ export default function BudgetPage() {
 
     const actualExpenseRows: ProjectionRow[] = [
       { label: 'Expense', values: results.map(() => ''), isHeader: true },
-      { label: 'Rent', values: results.map(r => r.actual.rent), isCurrency: true },
       { label: 'Amex Gold', values: results.map(r => r.actual.amex), isCurrency: true },
       { label: 'Chase', values: results.map(r => r.actual.chase), isCurrency: true },
       { label: 'Total Expenses', values: results.map(r => r.actual.total), isCurrency: true, isBold: true },

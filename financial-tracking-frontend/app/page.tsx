@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { fetchTransactions } from '@/lib/api';
 import { Transaction, TimeRange, TransactionOrigin } from '@/lib/types';
+import { isInternalTransfer } from '@/lib/transactionUtils';
 import TransactionList from '@/components/TransactionList';
 import SpendingChart from '@/components/SpendingChart';
 import TrendChart from '@/components/TrendChart';
@@ -64,7 +65,7 @@ export default function Home() {
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
-      if (ignoreAutopay && ( t.description === 'AUTOPAY PAYMENT - THANK YOU' || t.description.includes('AMERICAN EXPRESS ACH PMT'))) {
+      if (ignoreAutopay && isInternalTransfer(t)) {
         return false;
       }
       if (originFilter !== 'ALL' && t.transactionOrigin !== originFilter) {

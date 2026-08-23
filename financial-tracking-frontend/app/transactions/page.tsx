@@ -4,7 +4,7 @@ import { Suspense, useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { fetchTransactions } from '@/lib/api';
 import { Transaction } from '@/lib/types';
-import { isSpending, isIncome, absAmount } from '@/lib/transactionUtils';
+import { isSpending, isIncome, absAmount, isInternalTransfer } from '@/lib/transactionUtils';
 import { 
   ArrowLeft, 
   Search, 
@@ -128,7 +128,7 @@ function TransactionsContent() {
       const matchesSearch = (t.description || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
                            (t.category && t.category.toLowerCase().includes(searchTerm.toLowerCase()));
       
-      if (ignoreAutopay && ( (t.description || '') === 'AUTOPAY PAYMENT - THANK YOU' || (t.description || '').includes('AMERICAN EXPRESS ACH PMT'))) {
+      if (ignoreAutopay && isInternalTransfer(t)) {
         return false;
       }
 

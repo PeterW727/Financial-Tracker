@@ -17,3 +17,8 @@ export function isIncome(t: Transaction): boolean {
 export function absAmount(t: Transaction): number {
   return Math.abs(t.amount || 0);
 }
+
+export function isInternalTransfer(t: Transaction): boolean {
+  const desc = t.description || '';
+  return desc === 'AUTOPAY PAYMENT - THANK YOU' || desc.includes('AMERICAN EXPRESS ACH PMT');
+}

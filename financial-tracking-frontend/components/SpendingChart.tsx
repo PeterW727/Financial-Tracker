@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Transaction } from '@/lib/types';
 import { isSpending, absAmount } from '@/lib/transactionUtils';
@@ -16,11 +16,15 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'
 
 export default function SpendingChart({ transactions, timeRange, currentDate }: SpendingChartProps) {
   const router = useRouter();
-  const [ignoreChase, setIgnoreChase] = useState(false);
+  const [excludedOrigins, setExcludedOrigins] = useState<string[]>([]);
+
+  const availableOrigins = useMemo(() => {
+    return Array.from(new Set(transactions.map(t => t.transactionOrigin))).sort();
+  }, [transactions]);
 
   const categoryTotals = transactions.reduce((acc, t) => {
     if (isSpending(t)) {
-      if (ignoreChase && t.transactionOrigin === 'CHASE') {
+      if (excludedOrigins.includes(t.transactionOrigin)) {
         return acc;
       }
       acc[t.category] = (acc[t.category] || 0) + absAmount(t);
@@ -48,19 +52,33 @@ export default function SpendingChart({ transactions, timeRange, currentDate }: 
 
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 p-6 h-[400px]">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="font-semibold text-zinc-900 dark:text-zinc-50">Spending by Category</h3>
-        <button
-          onClick={() => setIgnoreChase(!ignoreChase)}
-          className="flex items-center gap-2 px-2 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors border border-zinc-200 dark:border-zinc-800 shadow-sm"
-        >
-          <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-colors ${
-            ignoreChase ? 'bg-blue-600 border-blue-600' : 'bg-transparent border-zinc-300'
-          }`}>
-            {ignoreChase && <div className="w-1 h-1 bg-white rounded-full" />}
-          </div>
-          Ignore Chase
-        </button>
+      <div className="flex flex-col gap-3 mb-4">
+        <div className="flex justify-between items-center">
+          <h3 className="font-semibold text-zinc-900 dark:text-zinc-50">Spending by Category</h3>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {availableOrigins.map(origin => (
+            <button
+              key={origin}
+              onClick={() => {
+                if (excludedOrigins.includes(origin)) {
+                  setExcludedOrigins(excludedOrigins.filter(o => o !== origin));
+                } else {
+                  setExcludedOrigins([...excludedOrigins, origin]);
+                }
+              }}
+              className="flex items-center gap-2 px-2 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors border border-zinc-200 dark:border-zinc-800 shadow-sm"
+              title={excludedOrigins.includes(origin) ? `Show ${origin}` : `Hide ${origin}`}
+            >
+              <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-colors ${
+                !excludedOrigins.includes(origin) ? 'bg-blue-600 border-blue-600' : 'bg-transparent border-zinc-300'
+              }`}>
+                {!excludedOrigins.includes(origin) && <div className="w-1 h-1 bg-white rounded-full" />}
+              </div>
+              {origin.charAt(0) + origin.slice(1).toLowerCase()}
+            </button>
+          ))}
+        </div>
       </div>
       {data.length === 0 ? (
         <div className="h-full flex items-center justify-center text-zinc-500">

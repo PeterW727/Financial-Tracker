@@ -103,12 +103,13 @@ export default function ExceptionManagerModal({ onClose, onUpdate }: ExceptionMa
           <div>
             <h3 className="text-xl font-bold flex items-center gap-2">
               <Settings className="text-blue-500" size={24} />
-              Manage Autopay Exceptions
+              Manage Autopay / Income Exceptions
               <div className="group relative">
                 <HelpCircle size={18} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 cursor-help transition-colors" />
                 <div className="invisible group-hover:visible absolute left-1/2 -translate-x-1/2 top-full mt-2 w-72 p-3 bg-zinc-800 dark:bg-zinc-700 text-white text-xs font-normal rounded-xl shadow-xl border border-zinc-700 dark:border-zinc-600 z-[70] transition-all opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto">
                   <p className="leading-relaxed">
-                    Create rules for transactions you want to ignore. This is typically used for autopayments that inflate spending totals or cause discrepancies in your budget. Use the Default tab for simple matching, or the Advanced tab for custom regex control.
+                    Create rules for transactions you want to ignore. This is typically used for autopayments that inflate spending totals or cause discrepancies in your budget. Additionally, for budgeting purposes it is smart to also include income exceptions.
+                    Use the Default tab for simple matching, or the Advanced tab for custom regex control.
                   </p>
                   <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-zinc-800 dark:bg-zinc-700 rotate-45 border-t border-l border-zinc-700 dark:border-zinc-600"></div>
                 </div>

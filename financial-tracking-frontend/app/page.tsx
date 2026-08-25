@@ -19,10 +19,15 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>('month');
-  const [originFilter, setOriginFilter] = useState<'ALL' | TransactionOrigin>('ALL');
+  const [originFilter, setOriginFilter] = useState<string>('ALL');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [ignoreAutopay, setIgnoreAutopay] = useState(true);
   const [exceptions, setExceptions] = useState<Exception[]>([]);
+
+  const availableOrigins = useMemo(() => {
+    const origins = Array.from(new Set(transactions.map(t => t.transactionOrigin)));
+    return origins.sort();
+  }, [transactions]);
 
   const loadData = useCallback(async () => {
     try {
@@ -227,36 +232,19 @@ export default function Home() {
               >
                 All
               </button>
-              <button
-                onClick={() => setOriginFilter('AMEX')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  originFilter === 'AMEX' 
-                  ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50' 
-                  : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
-                }`}
-              >
-                Amex
-              </button>
-              <button
-                onClick={() => setOriginFilter('CHASE')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  originFilter === 'CHASE' 
-                  ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50' 
-                  : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
-                }`}
-              >
-                Chase
-              </button>
-              <button
-                onClick={() => setOriginFilter('VENMO')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  originFilter === 'VENMO' 
-                  ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50' 
-                  : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
-                }`}
-              >
-                Venmo
-              </button>
+              {availableOrigins.map(origin => (
+                <button
+                  key={origin}
+                  onClick={() => setOriginFilter(origin)}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    originFilter === origin 
+                    ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50' 
+                    : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+                  }`}
+                >
+                  {origin.charAt(0) + origin.slice(1).toLowerCase()}
+                </button>
+              ))}
             </div>
 
             <div className="flex items-center bg-white dark:bg-zinc-900 p-1 rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-sm">

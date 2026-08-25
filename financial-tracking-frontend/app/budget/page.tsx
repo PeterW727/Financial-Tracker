@@ -183,9 +183,13 @@ export default function BudgetPage() {
       // Expenses - Budgeted
       const monthBudgetedExpenses = expenses.filter(e => doesExpenseOccurInMonth(e, date));
 
+      const oneTimeBudgeted = monthBudgetedExpenses
+        .filter(e => e.frequency === 'Single')
+        .reduce((acc, e) => acc + e.amount, 0);
+
       const rentBudgeted = monthBudgetedExpenses
         .filter(e => (e.expenseType === 'Housing' || e.name.toLowerCase().includes('rent')) && e.frequency !== 'Single')
-        .reduce((acc, e) => acc + e.amount, 0);
+        .reduce((acc, e) => acc + e.amount, 0) + oneTimeBudgeted;
 
       const otherFixedBudgeted = monthBudgetedExpenses
         .filter(e => (e.expenseType === 'Fixed' || e.expenseType === 'Subscription') && !e.name.toLowerCase().includes('rent') && e.expenseType !== 'Housing' && e.frequency !== 'Single')
@@ -213,14 +217,7 @@ export default function BudgetPage() {
           }
         }, 0);
 
-      const oneTimeBudgeted = monthBudgetedExpenses
-        .filter(e => e.frequency === 'Single')
-        .reduce((acc, e) => acc + e.amount, 0);
-
       const totalExpensesBudgeted = rentBudgeted + otherFixedBudgeted + discretionaryBudgeted;
-      
-      // For Savings Balance, we MUST include all expenses (recurring + one-time)
-      const totalAllBudgetedExpenses = totalExpensesBudgeted + oneTimeBudgeted;
 
       // Expenses - Actual
       const monthTransactions = transactions.filter(t => {
@@ -243,13 +240,13 @@ export default function BudgetPage() {
       
       const totalExpensesActual = Object.values(originTotals).reduce((acc, val) => acc + val, 0);
 
-      const netIncomeBudgeted = totalIncome - totalAllBudgetedExpenses;
-      const netIncomeActual = totalIncome - totalExpensesActual - rentBudgeted - oneTimeBudgeted;
+      const netIncomeBudgeted = totalIncome - totalExpensesBudgeted;
+      const netIncomeActual = totalIncome - totalExpensesActual - rentBudgeted;
       
       // For Savings Balance, we MUST include all expenses (recurring + one-time)
       const balanceImpact = view === 'Budgeted' 
-        ? (totalIncome - totalAllBudgetedExpenses) 
-        : (totalIncome - totalExpensesActual - rentBudgeted - oneTimeBudgeted);
+        ? (totalIncome - totalExpensesBudgeted) 
+        : (totalIncome - totalExpensesActual - rentBudgeted);
       
       currentBalance += balanceImpact;
 
@@ -301,7 +298,6 @@ export default function BudgetPage() {
       { label: 'Budgeted Expenses', values: results.map(r => r.budgeted.expenses), isCurrency: true },
       { label: 'Discretionary', values: results.map(r => r.budgeted.discretionary), isCurrency: true },
       { label: 'Total Monthly Cost', values: results.map(r => r.budgeted.total), isCurrency: true, isBold: true },
-      { label: 'One-time Expenses', values: results.map(r => r.budgeted.oneTime), isCurrency: true },
       { label: 'space', values: [] },
       { label: 'Net Income', values: results.map(r => r.budgeted.netIncome), isCurrency: true, isBold: true },
       { label: 'space', values: [] },

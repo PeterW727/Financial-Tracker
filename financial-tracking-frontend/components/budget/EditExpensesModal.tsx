@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Edit2, Trash2, Plus } from 'lucide-react';
+import { parseLocalDate } from '@/lib/dateUtils';
 import { Expense } from '@/lib/types';
 import { deleteExpense } from '@/lib/api';
 import ExpenseReport from './ExpenseReport';
@@ -90,8 +91,8 @@ export default function EditExpensesModal({ expenses, onClose, onSuccess }: Edit
                   <td className="px-4 py-4 text-zinc-500">{e.frequency}</td>
                   <td className="px-4 py-4 text-right font-semibold">{formatCurrency(e.amount)}</td>
                   <td className="px-4 py-4 text-right text-zinc-500 text-xs">
-                    {e.startDate ? new Date(e.startDate).toLocaleDateString() : 'N/A'} 
-                    {e.endDate ? ` - ${new Date(e.endDate).toLocaleDateString()}` : ' - Present'}
+                    {e.startDate ? parseLocalDate(e.startDate)?.toLocaleDateString() : 'N/A'} 
+                    {e.endDate ? ` - ${parseLocalDate(e.endDate)?.toLocaleDateString()}` : ' - Present'}
                   </td>
                   <td className="px-4 py-4 text-right">
                     <div className="flex justify-end gap-2">

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Home, CreditCard, Train } from 'lucide-react';
+import { parseLocalDate } from '@/lib/dateUtils';
 import { Expense } from '@/lib/types';
 
 interface HousingBreakdownProps {
@@ -50,7 +51,7 @@ export function HousingBreakdown({ expenses }: HousingBreakdownProps) {
             <div className="flex flex-col">
               <span className="text-xs font-medium text-amber-800 dark:text-amber-200">{e.name}</span>
               <span className="text-[10px] text-amber-600 dark:text-amber-400">
-                Single expense ({e.startDate ? new Date(e.startDate).toLocaleDateString('en-US', { month: 'long' }) : 'N/A'})
+                Single expense ({e.startDate ? parseLocalDate(e.startDate)?.toLocaleDateString('en-US', { month: 'long' }) : 'N/A'})
               </span>
             </div>
             <span className="text-xs font-bold text-amber-700 dark:text-amber-300">{formatCurrency(e.amount)}</span>

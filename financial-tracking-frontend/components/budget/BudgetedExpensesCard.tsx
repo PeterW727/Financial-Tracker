@@ -1,4 +1,5 @@
 import React from 'react';
+import { parseLocalDate } from '@/lib/dateUtils';
 import { Expense } from '@/lib/types';
 
 interface BudgetProgressProps {
@@ -65,7 +66,7 @@ const ExpenseTable = ({ title, items, isOneTime = false }: { title: string, item
               {isOneTime ? (
                 <>
                   <td className="px-4 py-3 text-right text-zinc-500">
-                    {e.startDate ? new Date(e.startDate).toLocaleDateString('en-US', { month: 'long' }) : 'N/A'}
+                    {e.startDate ? parseLocalDate(e.startDate)?.toLocaleDateString('en-US', { month: 'long' }) : 'N/A'}
                   </td>
                   <td className="px-4 py-3 text-right font-semibold text-zinc-900 dark:text-zinc-50">
                     {formatCurrency(e.amount)}

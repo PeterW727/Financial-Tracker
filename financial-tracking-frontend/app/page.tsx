@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { fetchTransactions } from '@/lib/api';
+import { parseLocalDate } from '@/lib/dateUtils';
 import { Transaction, TimeRange, TransactionOrigin } from '@/lib/types';
 import { isInternalTransfer } from '@/lib/transactionUtils';
 import TransactionList from '@/components/TransactionList';
@@ -71,8 +72,8 @@ export default function Home() {
       if (originFilter !== 'ALL' && t.transactionOrigin !== originFilter) {
         return false;
       }
-      if (!t.date) return false;
-      const tDate = new Date(t.date + 'T00:00:00');
+      const tDate = parseLocalDate(t.date);
+      if (!tDate) return false;
       
       if (timeRange === 'week') {
         const start = new Date(currentDate);

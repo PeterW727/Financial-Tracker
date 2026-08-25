@@ -1,6 +1,7 @@
 'use client';
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { parseLocalDate } from '@/lib/dateUtils';
 import { Transaction, TimeRange } from '@/lib/types';
 import { isSpending, isIncome, absAmount } from '@/lib/transactionUtils';
 import { useMemo, useState } from 'react';
@@ -127,7 +128,8 @@ export default function TrendChart({ transactions, timeRange, currentDate }: Tre
       const months = [];
       for (let i = 0; i < 12; i++) {
         const monthTransactions = transactions.filter(t => {
-          const tDate = new Date(t.date + 'T00:00:00');
+          const tDate = parseLocalDate(t.date);
+          if (!tDate) return false;
           return tDate.getFullYear() === year && tDate.getMonth() === i;
         });
 

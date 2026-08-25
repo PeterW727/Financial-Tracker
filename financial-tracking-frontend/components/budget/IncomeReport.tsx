@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Calendar } from 'lucide-react';
+import { formatLocalDate, parseLocalDate } from '@/lib/dateUtils';
 import { Income } from '@/lib/types';
 import { saveIncome, updateIncome } from '@/lib/api';
 
@@ -16,7 +17,7 @@ export default function IncomeReport({ onClose, onSuccess, initialData }: Income
     bonus: 0,
     bonusTaxRate: 0,
     bonusPayoutDate: null,
-    startDate: new Date().toISOString().split('T')[0],
+    startDate: formatLocalDate(new Date()),
     endDate: null
   });
   const [isCurrentlyInRole, setIsCurrentlyInRole] = useState(!initialData?.endDate);
@@ -90,7 +91,7 @@ export default function IncomeReport({ onClose, onSuccess, initialData }: Income
               <input
                 type="date"
                 required
-                value={formData.startDate ? (typeof formData.startDate === 'string' ? formData.startDate.split('T')[0] : new Date(formData.startDate).toISOString().split('T')[0]) : ''}
+                value={formData.startDate ? (typeof formData.startDate === 'string' ? formData.startDate.split(/[T ]/)[0] : formatLocalDate(formData.startDate)) : ''}
                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                 className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               />
@@ -111,7 +112,7 @@ export default function IncomeReport({ onClose, onSuccess, initialData }: Income
               <input
                 type="date"
                 disabled={isCurrentlyInRole}
-                value={formData.endDate ? (typeof formData.endDate === 'string' ? formData.endDate.split('T')[0] : new Date(formData.endDate).toISOString().split('T')[0]) : ''}
+                value={formData.endDate ? (typeof formData.endDate === 'string' ? formData.endDate.split(/[T ]/)[0] : formatLocalDate(formData.endDate)) : ''}
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                 className={`w-full px-3 py-2 border rounded-lg outline-none transition-colors ${
                   isCurrentlyInRole 
@@ -146,7 +147,7 @@ export default function IncomeReport({ onClose, onSuccess, initialData }: Income
               <label className="block text-sm font-medium mb-1">Payout Date</label>
               <input
                 type="date"
-                value={formData.bonusPayoutDate ? (typeof formData.bonusPayoutDate === 'string' ? formData.bonusPayoutDate.split('T')[0] : new Date(formData.bonusPayoutDate).toISOString().split('T')[0]) : ''}
+                value={formData.bonusPayoutDate ? (typeof formData.bonusPayoutDate === 'string' ? formData.bonusPayoutDate.split(/[T ]/)[0] : formatLocalDate(formData.bonusPayoutDate)) : ''}
                 onChange={(e) => setFormData({ ...formData, bonusPayoutDate: e.target.value })}
                 className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               />

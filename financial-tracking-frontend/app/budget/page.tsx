@@ -6,6 +6,7 @@ import {
   fetchExpenses, 
   fetchIncome 
 } from '@/lib/api';
+import { parseLocalDate } from '@/lib/dateUtils';
 import { 
   Transaction, 
   Expense, 
@@ -23,13 +24,15 @@ import { Loader2, ArrowLeft, LayoutDashboard, List, Plus, Edit3 } from 'lucide-r
 import Link from 'next/link';
 
 function doesExpenseOccurInMonth(e: Expense, date: Date): boolean {
-  const start = e.startDate ? new Date(e.startDate) : new Date(0);
+  const start = parseLocalDate(e.startDate) || new Date(0);
   const startMonth = new Date(start.getFullYear(), start.getMonth(), 1);
   
   let endMonth = null;
   if (e.endDate) {
-    const end = new Date(e.endDate);
-    endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+    const end = parseLocalDate(e.endDate);
+    if (end) {
+      endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+    }
   }
 
   const isStarted = startMonth <= date;
@@ -102,12 +105,15 @@ export default function BudgetPage() {
     const now = new Date();
     const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     return incomeRecords.find(i => {
-      const start = new Date(i.startDate);
+      const start = parseLocalDate(i.startDate);
+      if (!start) return false;
       const startMonth = new Date(start.getFullYear(), start.getMonth(), 1);
       let endMonth = null;
       if (i.endDate) {
-        const end = new Date(i.endDate);
-        endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+        const end = parseLocalDate(i.endDate);
+        if (end) {
+          endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+        }
       }
       return startMonth <= currentMonth && (!endMonth || endMonth >= currentMonth);
     }) || incomeRecords[0] || null;
@@ -131,12 +137,15 @@ export default function BudgetPage() {
       
       // Income for this specific month
       const activeIncomesForMonth = incomeRecords.filter(incomeRecord => {
-        const start = new Date(incomeRecord.startDate);
+        const start = parseLocalDate(incomeRecord.startDate);
+        if (!start) return false;
         const startMonth = new Date(start.getFullYear(), start.getMonth(), 1);
         let endMonth = null;
         if (incomeRecord.endDate) {
-          const end = new Date(incomeRecord.endDate);
-          endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+          const end = parseLocalDate(incomeRecord.endDate);
+          if (end) {
+            endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+          }
         }
         return startMonth <= date && (!endMonth || endMonth >= date);
       });
@@ -147,7 +156,8 @@ export default function BudgetPage() {
 
       const netBonus = activeIncomesForMonth.reduce((acc, incomeRecord) => {
         if (!incomeRecord.bonusPayoutDate) return acc;
-        const payout = new Date(incomeRecord.bonusPayoutDate);
+        const payout = parseLocalDate(incomeRecord.bonusPayoutDate);
+        if (!payout) return acc;
         const payoutMonth = new Date(payout.getFullYear(), payout.getMonth(), 1);
         if (payoutMonth.getTime() === date.getTime()) {
            return acc + incomeRecord.bonus * (1 - incomeRecord.bonusTaxRate / 100);
@@ -199,7 +209,8 @@ export default function BudgetPage() {
 
       // Expenses - Actual
       const monthTransactions = transactions.filter(t => {
-        const d = new Date(t.date);
+        const d = parseLocalDate(t.date);
+        if (!d) return false;
         return d.getMonth() === monthIndex && d.getFullYear() === year;
       });
 

@@ -3,6 +3,7 @@
 import { Suspense, useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { fetchTransactions } from '@/lib/api';
+import { parseLocalDate } from '@/lib/dateUtils';
 import { Transaction } from '@/lib/types';
 import { isSpending, isIncome, absAmount, isInternalTransfer } from '@/lib/transactionUtils';
 import { 
@@ -74,8 +75,8 @@ function TransactionsContent() {
   const baseDateStr = searchParams.get('baseDate');
   const initialCurrentDate = useMemo(() => {
     if (baseDateStr) {
-      const d = new Date(baseDateStr);
-      if (!isNaN(d.getTime())) return d;
+      const d = parseLocalDate(baseDateStr);
+      if (d && !isNaN(d.getTime())) return d;
     }
     return new Date();
   }, [baseDateStr]);
@@ -103,8 +104,8 @@ function TransactionsContent() {
     
     const baseDate = searchParams.get('baseDate');
     if (baseDate) {
-      const parsedDate = new Date(baseDate);
-      if (!isNaN(parsedDate.getTime())) {
+      const parsedDate = parseLocalDate(baseDate);
+      if (parsedDate && !isNaN(parsedDate.getTime())) {
         setCurrentDate(prev => prev.getTime() !== parsedDate.getTime() ? parsedDate : prev);
       }
     }
@@ -152,8 +153,8 @@ function TransactionsContent() {
       if (dateFilter) {
         matchesDate = t.date === dateFilter;
       } else if (timeRange !== 'all') {
-        const tDate = new Date((t.date || '') + 'T00:00:00');
-        if (isNaN(tDate.getTime())) {
+        const tDate = parseLocalDate(t.date);
+        if (!tDate || isNaN(tDate.getTime())) {
           matchesDate = false;
         } else if (timeRange === 'week') {
           const start = new Date(currentDate);

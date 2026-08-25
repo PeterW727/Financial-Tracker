@@ -1,4 +1,5 @@
 import React from 'react';
+import { parseLocalDate } from '@/lib/dateUtils';
 import { Income } from '@/lib/types';
 
 interface IncomeSummaryTableProps {
@@ -42,7 +43,7 @@ export default function IncomeSummaryTable({ income }: IncomeSummaryTableProps) 
     { label: 'Income Per Month', gross: formatCurrency(monthlyIncomeGross), net: formatCurrency(monthlyIncomeNet) },
     { label: 'Bonus Amount', gross: formatCurrency(bonusGross), net: formatCurrency(bonusNet) },
     { label: 'Tax Rate (for bonus)', gross: `${income.bonusTaxRate}%`, net: `${income.bonusTaxRate}%` },
-    { label: 'Bonus Payout Date', gross: '-', net: income.bonusPayoutDate ? new Date(income.bonusPayoutDate).toLocaleDateString() : 'N/A' },
+    { label: 'Bonus Payout Date', gross: '-', net: income.bonusPayoutDate ? parseLocalDate(income.bonusPayoutDate)?.toLocaleDateString() : 'N/A' },
     { label: 'Total Salary', gross: formatCurrency(totalSalaryGross), net: formatCurrency(totalSalaryNet), isBold: true },
     { label: 'Total Tax', gross: '-', net: formatCurrency(totalTax), isBold: true },
   ];

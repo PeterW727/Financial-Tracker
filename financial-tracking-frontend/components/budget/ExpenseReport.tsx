@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
+import { formatLocalDate } from '@/lib/dateUtils';
 import { Expense, ExpenseFrequency, ExpenseType } from '@/lib/types';
 import { saveExpense, updateExpense } from '@/lib/api';
 
@@ -15,7 +16,7 @@ export default function ExpenseReport({ onClose, onSuccess, initialData }: Expen
     amount: 0,
     frequency: 'Monthly',
     expenseType: 'Fixed',
-    startDate: new Date().toISOString().split('T')[0],
+    startDate: formatLocalDate(new Date()),
     endDate: null
   });
   const [isStillRecurring, setIsStillRecurring] = useState(!initialData?.endDate);
@@ -112,7 +113,7 @@ export default function ExpenseReport({ onClose, onSuccess, initialData }: Expen
               <input
                 type="date"
                 required
-                value={formData.startDate ? (typeof formData.startDate === 'string' ? formData.startDate.split('T')[0] : new Date(formData.startDate).toISOString().split('T')[0]) : ''}
+                value={formData.startDate ? (typeof formData.startDate === 'string' ? formData.startDate.split(/[T ]/)[0] : formatLocalDate(formData.startDate)) : ''}
                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                 className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               />
@@ -132,7 +133,7 @@ export default function ExpenseReport({ onClose, onSuccess, initialData }: Expen
               <input
                 type="date"
                 disabled={isStillRecurring}
-                value={formData.endDate ? (typeof formData.endDate === 'string' ? formData.endDate.split('T')[0] : new Date(formData.endDate).toISOString().split('T')[0]) : ''}
+                value={formData.endDate ? (typeof formData.endDate === 'string' ? formData.endDate.split(/[T ]/)[0] : formatLocalDate(formData.endDate)) : ''}
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                 className={`w-full px-3 py-2 border rounded-lg outline-none transition-colors ${
                   isStillRecurring 

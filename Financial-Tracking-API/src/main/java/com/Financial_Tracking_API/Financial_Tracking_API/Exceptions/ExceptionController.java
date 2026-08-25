@@ -13,27 +13,31 @@ public class ExceptionController {
     private final ExceptionService exceptionService;
 
     @GetMapping
-    public ResponseEntity<List<Exceptions>> getAllExceptions() {
-        return ResponseEntity.ok(exceptionService.getAllExceptions());
+    public ResponseEntity<?> getAllExceptions() {
+        return ResponseEntity.ok(
+                exceptionService.getAllExceptions().stream()
+                        .map(ExceptionRecord::fromObject)
+                        .toList()
+        );
     }
 
     @PostMapping
-    public ResponseEntity<?> createException(Exceptions exception) {
-        exceptionService.saveException(exception);
+    public ResponseEntity<?> createException(@RequestBody ExceptionRecord exception) {
+        exceptionService.saveException(ExceptionRecord.toObject(exception));
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteException(Integer id) {
+    public ResponseEntity<?> deleteException(@PathVariable Integer id) {
         exceptionService.deleteException(id);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/update")
-    public ResponseEntity<?> updateException(Exceptions exception) {
+    public ResponseEntity<?> updateException(@RequestBody ExceptionRecord exception) {
         try {
-            exceptionService.findExceptionById(exception.getExceptionId());
-            exceptionService.saveException(exception);
+            exceptionService.findExceptionById(exception.exceptionId());
+            exceptionService.saveException(ExceptionRecord.toObject(exception));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

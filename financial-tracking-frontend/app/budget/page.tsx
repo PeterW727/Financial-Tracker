@@ -4,13 +4,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { 
   fetchTransactions, 
   fetchExpenses, 
-  fetchIncome 
+  fetchIncome,
+  fetchExceptions
 } from '@/lib/api';
 import { parseLocalDate } from '@/lib/dateUtils';
 import { 
   Transaction, 
   Expense, 
-  Income 
+  Income,
+  Exception
 } from '@/lib/types';
 import { isSpending, absAmount, isInternalTransfer } from '@/lib/transactionUtils';
 import BudgetedExpensesCard from '@/components/budget/BudgetedExpensesCard';
@@ -63,6 +65,7 @@ export default function BudgetPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [incomeRecords, setIncomeRecords] = useState<Income[]>([]);
+  const [exceptions, setExceptions] = useState<Exception[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showExpenseForm, setShowExpenseForm] = useState(false);
@@ -73,14 +76,16 @@ export default function BudgetPage() {
   const loadData = useCallback(async (showLoading = true) => {
     try {
       if (showLoading) setLoading(true);
-      const [tData, eData, iData] = await Promise.all([
+      const [tData, eData, iData, exData] = await Promise.all([
         fetchTransactions(),
         fetchExpenses(),
         fetchIncome(),
+        fetchExceptions(),
       ]);
       setTransactions(tData);
       setExpenses(eData);
       setIncomeRecords(iData);
+      setExceptions(exData);
       setError(null);
     } catch (err) {
       console.error(err);
@@ -217,11 +222,11 @@ export default function BudgetPage() {
       });
 
       const amexActual = monthTransactions
-        .filter(t => t.transactionOrigin === 'AMEX' && isSpending(t) && !isInternalTransfer(t))
+        .filter(t => t.transactionOrigin === 'AMEX' && isSpending(t) && !isInternalTransfer(t, exceptions))
         .reduce((acc, t) => acc + absAmount(t), 0);
       
       const chaseActual = monthTransactions
-        .filter(t => t.transactionOrigin === 'CHASE' && isSpending(t) && !isInternalTransfer(t))
+        .filter(t => t.transactionOrigin === 'CHASE' && isSpending(t) && !isInternalTransfer(t, exceptions))
         .reduce((acc, t) => acc + absAmount(t), 0);
       
       const totalExpensesActual = amexActual + chaseActual;

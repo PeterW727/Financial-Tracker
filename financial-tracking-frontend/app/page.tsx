@@ -1,15 +1,16 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { fetchTransactions } from '@/lib/api';
+import { fetchTransactions, fetchExceptions } from '@/lib/api';
 import { parseLocalDate } from '@/lib/dateUtils';
-import { Transaction, TimeRange, TransactionOrigin } from '@/lib/types';
+import { Transaction, TimeRange, TransactionOrigin, Exception } from '@/lib/types';
 import { isInternalTransfer } from '@/lib/transactionUtils';
 import TransactionList from '@/components/TransactionList';
 import SpendingChart from '@/components/SpendingChart';
 import TrendChart from '@/components/TrendChart';
 import TransactionSummary from '@/components/TransactionSummary';
 import ImportButton from '@/components/ImportButton';
+import AutopayToggle from '@/components/AutopayToggle';
 import { Loader2, RefreshCw, DollarSign, ChevronLeft, ChevronRight, List } from 'lucide-react';
 import Link from 'next/link';
 
@@ -21,11 +22,16 @@ export default function Home() {
   const [originFilter, setOriginFilter] = useState<'ALL' | TransactionOrigin>('ALL');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [ignoreAutopay, setIgnoreAutopay] = useState(true);
+  const [exceptions, setExceptions] = useState<Exception[]>([]);
 
   const loadData = useCallback(async () => {
     try {
-      const data = await fetchTransactions();
-      setTransactions(data);
+      const [tData, exData] = await Promise.all([
+        fetchTransactions(),
+        fetchExceptions()
+      ]);
+      setTransactions(tData);
+      setExceptions(exData);
       setError(null);
     } catch (err) {
       setError('Failed to load transactions. Make sure the API is running at http://localhost:8080');
@@ -40,9 +46,13 @@ export default function Home() {
     
     async function init() {
       try {
-        const data = await fetchTransactions();
+        const [tData, exData] = await Promise.all([
+          fetchTransactions(),
+          fetchExceptions()
+        ]);
         if (!ignore) {
-          setTransactions(data);
+          setTransactions(tData);
+          setExceptions(exData);
           setError(null);
         }
       } catch (err) {
@@ -66,7 +76,7 @@ export default function Home() {
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
-      if (ignoreAutopay && isInternalTransfer(t)) {
+      if (ignoreAutopay && isInternalTransfer(t, exceptions)) {
         return false;
       }
       if (originFilter !== 'ALL' && t.transactionOrigin !== originFilter) {
@@ -98,7 +108,7 @@ export default function Home() {
       }
       return true;
     });
-  }, [transactions, timeRange, currentDate, ignoreAutopay, originFilter]);
+  }, [transactions, timeRange, currentDate, ignoreAutopay, originFilter, exceptions]);
 
   const goToPrevious = () => {
     const newDate = new Date(currentDate);
@@ -200,22 +210,11 @@ export default function Home() {
           </div>
           
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => setIgnoreAutopay(!ignoreAutopay)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-colors ${
-                ignoreAutopay 
-                ? 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400' 
-                : 'bg-white border-zinc-200 text-zinc-600 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-400 hover:bg-zinc-50'
-              }`}
-              title={ignoreAutopay ? "Showing all but Autopayments" : "Showing all transactions"}
-            >
-              <div className={`w-3.5 h-3.5 rounded-sm border flex items-center justify-center transition-colors ${
-                ignoreAutopay ? 'bg-blue-600 border-blue-600' : 'bg-transparent border-zinc-300'
-              }`}>
-                {ignoreAutopay && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
-              </div>
-              Ignore Autopay
-            </button>
+            <AutopayToggle 
+              ignoreAutopay={ignoreAutopay} 
+              onToggle={setIgnoreAutopay} 
+              onUpdate={loadData}
+            />
             
             <div className="flex items-center bg-white dark:bg-zinc-900 p-1 rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-sm">
               <button

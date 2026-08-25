@@ -68,3 +68,9 @@ export interface Income {
   startDate: string | Date;
   endDate?: string | Date | null;
 }
+
+export interface Exception {
+  exceptionId?: number;
+  exceptionName: string;
+  regexRule: string;
+}

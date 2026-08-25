@@ -135,10 +135,10 @@ export default function BudgetPage() {
     const results = [];
     let currentBalance = 0;
 
-    // Get all unique transaction origins that have at least one spending transaction
+    // Get all unique transaction origins that have at least one non-transfer transaction
     const activeOrigins = Array.from(new Set(
       transactions
-        .filter(t => isSpending(t) && !isInternalTransfer(t, exceptions))
+        .filter(t => !isInternalTransfer(t, exceptions))
         .map(t => t.transactionOrigin)
         .filter(Boolean)
     )).sort();
@@ -232,8 +232,13 @@ export default function BudgetPage() {
       const originTotals: Record<string, number> = {};
       activeOrigins.forEach(origin => {
         originTotals[origin] = monthTransactions
-          .filter(t => t.transactionOrigin === origin && isSpending(t) && !isInternalTransfer(t, exceptions))
-          .reduce((acc, t) => acc + absAmount(t), 0);
+          .filter(t => t.transactionOrigin === origin && !isInternalTransfer(t, exceptions))
+          .reduce((acc, t) => {
+            // Net balance: Spending - Refunds/Credits
+            // For AMEX: amount > 0 is spending, amount < 0 is credit
+            // For others: amount < 0 is spending, amount > 0 is credit
+            return acc + (t.transactionOrigin === 'AMEX' ? t.amount : -t.amount);
+          }, 0);
       });
       
       const totalExpensesActual = Object.values(originTotals).reduce((acc, val) => acc + val, 0);

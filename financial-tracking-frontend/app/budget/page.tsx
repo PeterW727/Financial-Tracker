@@ -135,6 +135,14 @@ export default function BudgetPage() {
     const results = [];
     let currentBalance = 0;
 
+    // Get all unique transaction origins that have at least one spending transaction
+    const activeOrigins = Array.from(new Set(
+      transactions
+        .filter(t => isSpending(t) && !isInternalTransfer(t, exceptions))
+        .map(t => t.transactionOrigin)
+        .filter(Boolean)
+    )).sort();
+
     for (let i = 0; i < months.length; i++) {
       const year = i < 6 ? 2026 : 2027;
       const monthIndex = monthNamesShort.indexOf(months[i]);
@@ -221,15 +229,14 @@ export default function BudgetPage() {
         return d.getMonth() === monthIndex && d.getFullYear() === year;
       });
 
-      const amexActual = monthTransactions
-        .filter(t => t.transactionOrigin === 'AMEX' && isSpending(t) && !isInternalTransfer(t, exceptions))
-        .reduce((acc, t) => acc + absAmount(t), 0);
+      const originTotals: Record<string, number> = {};
+      activeOrigins.forEach(origin => {
+        originTotals[origin] = monthTransactions
+          .filter(t => t.transactionOrigin === origin && isSpending(t) && !isInternalTransfer(t, exceptions))
+          .reduce((acc, t) => acc + absAmount(t), 0);
+      });
       
-      const chaseActual = monthTransactions
-        .filter(t => t.transactionOrigin === 'CHASE' && isSpending(t) && !isInternalTransfer(t, exceptions))
-        .reduce((acc, t) => acc + absAmount(t), 0);
-      
-      const totalExpensesActual = amexActual + chaseActual;
+      const totalExpensesActual = Object.values(originTotals).reduce((acc, val) => acc + val, 0);
 
       const netIncomeBudgeted = totalIncome - totalAllBudgetedExpenses;
       const netIncomeActual = totalIncome - totalExpensesActual - rentBudgeted - oneTimeBudgeted;
@@ -261,8 +268,7 @@ export default function BudgetPage() {
         },
         actual: {
           rent: rentBudgeted,
-          amex: amexActual,
-          chase: chaseActual,
+          originTotals,
           total: totalExpensesActual,
           budget: totalExpensesBudgeted,
           percentOfBudget: totalExpensesBudgeted > 0 ? (totalExpensesActual / totalExpensesBudgeted) * 100 : 0,
@@ -299,8 +305,11 @@ export default function BudgetPage() {
 
     const actualExpenseRows: ProjectionRow[] = [
       { label: 'Expense', values: results.map(() => ''), isHeader: true },
-      { label: 'Amex Gold', values: results.map(r => r.actual.amex), isCurrency: true },
-      { label: 'Chase', values: results.map(r => r.actual.chase), isCurrency: true },
+      ...activeOrigins.map(origin => ({
+        label: origin.charAt(0).toUpperCase() + origin.slice(1).toLowerCase(),
+        values: results.map(r => (r.actual as any).originTotals[origin] || 0),
+        isCurrency: true
+      })),
       { label: 'Total Expenses', values: results.map(r => r.actual.total), isCurrency: true, isBold: true },
       { label: 'Budget', values: results.map(r => r.actual.budget), isCurrency: true },
       { label: '% of Budget', values: results.map(r => r.actual.percentOfBudget), isPercentage: true, colorLogic: 'percentage' },

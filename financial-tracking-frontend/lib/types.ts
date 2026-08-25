@@ -46,7 +46,7 @@ export interface Transaction {
 export type TimeRange = 'week' | 'month' | 'ytd';
 
 export type ExpenseFrequency = 'Monthly' | 'Yearly' | 'Quarterly' | 'Weekly' | 'Daily' | 'Single';
-export type ExpenseType = 'Fixed' | 'Variable';
+export type ExpenseType = 'Fixed' | 'Variable' | 'Housing' | 'Subscription' | 'Utilities';
 
 export interface Expense {
   expenseId?: number;

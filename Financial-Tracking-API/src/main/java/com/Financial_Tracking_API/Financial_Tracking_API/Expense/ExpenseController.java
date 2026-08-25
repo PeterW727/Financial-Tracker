@@ -32,7 +32,8 @@ public class ExpenseController {
     @PostMapping("/update")
     public ResponseEntity<?> updateExpense(@RequestBody ExpenseRecord expense) {
         try{
-            expenseService.updateExpense(ExpenseRecord.toObject(expense));
+            Expense e = ExpenseRecord.toObject(expense);
+            expenseService.updateExpense(e);
             return ResponseEntity.ok().build();
         }catch (Exception e){
             return ResponseEntity.badRequest().body("Error updating expense record");

@@ -128,7 +128,7 @@ export default function BudgetPage() {
     const monthNamesShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     
     const results = [];
-    let currentBalance = 10841.84;
+    let currentBalance = 0;
 
     for (let i = 0; i < months.length; i++) {
       const year = i < 6 ? 2026 : 2027;
@@ -171,11 +171,11 @@ export default function BudgetPage() {
       const monthBudgetedExpenses = expenses.filter(e => doesExpenseOccurInMonth(e, date));
 
       const rentBudgeted = monthBudgetedExpenses
-        .filter(e => e.name.toLowerCase().includes('rent'))
+        .filter(e => (e.expenseType === 'Housing' || e.name.toLowerCase().includes('rent')) && e.frequency !== 'Single')
         .reduce((acc, e) => acc + e.amount, 0);
 
       const otherFixedBudgeted = monthBudgetedExpenses
-        .filter(e => e.expenseType === 'Fixed' && !e.name.toLowerCase().includes('rent'))
+        .filter(e => (e.expenseType === 'Fixed' || e.expenseType === 'Subscription') && !e.name.toLowerCase().includes('rent') && e.expenseType !== 'Housing' && e.frequency !== 'Single')
         .reduce((acc, e) => {
           switch (e.frequency) {
             case 'Monthly': return acc + e.amount;
@@ -183,13 +183,12 @@ export default function BudgetPage() {
             case 'Quarterly': return acc + e.amount;
             case 'Weekly': return acc + (e.amount * 4.33);
             case 'Daily': return acc + (e.amount * 30);
-            case 'Single': return acc + e.amount;
             default: return acc;
           }
         }, 0);
         
       const discretionaryBudgeted = monthBudgetedExpenses
-        .filter(e => e.expenseType === 'Variable')
+        .filter(e => (e.expenseType === 'Variable' || e.expenseType === 'Utilities') && e.frequency !== 'Single')
         .reduce((acc, e) => {
           switch (e.frequency) {
             case 'Monthly': return acc + e.amount;
@@ -197,15 +196,18 @@ export default function BudgetPage() {
             case 'Quarterly': return acc + e.amount;
             case 'Weekly': return acc + (e.amount * 4.33);
             case 'Daily': return acc + (e.amount * 30);
-            case 'Single': return acc + e.amount;
             default: return acc;
           }
         }, 0);
 
+      const oneTimeBudgeted = monthBudgetedExpenses
+        .filter(e => e.frequency === 'Single')
+        .reduce((acc, e) => acc + e.amount, 0);
+
       const totalExpensesBudgeted = rentBudgeted + otherFixedBudgeted + discretionaryBudgeted;
       
-      // For Savings Balance, we still need to subtract EVERYTHING including one-time
-      const totalAllBudgetedExpenses = rentBudgeted + otherFixedBudgeted + discretionaryBudgeted;
+      // For Savings Balance, we MUST include all expenses (recurring + one-time)
+      const totalAllBudgetedExpenses = totalExpensesBudgeted + oneTimeBudgeted;
 
       // Expenses - Actual
       const monthTransactions = transactions.filter(t => {
@@ -224,13 +226,13 @@ export default function BudgetPage() {
       
       const totalExpensesActual = amexActual + chaseActual;
 
-      const netIncomeBudgeted = totalIncome - totalExpensesBudgeted;
-      const netIncomeActual = totalIncome - totalExpensesActual - rentBudgeted;
+      const netIncomeBudgeted = totalIncome - totalAllBudgetedExpenses;
+      const netIncomeActual = totalIncome - totalExpensesActual - rentBudgeted - oneTimeBudgeted;
       
       // For Savings Balance, we MUST include all expenses (recurring + one-time)
       const balanceImpact = view === 'Budgeted' 
         ? (totalIncome - totalAllBudgetedExpenses) 
-        : (totalIncome - totalExpensesActual - rentBudgeted);
+        : (totalIncome - totalExpensesActual - rentBudgeted - oneTimeBudgeted);
       
       currentBalance += balanceImpact;
 
@@ -247,6 +249,7 @@ export default function BudgetPage() {
           rent: rentBudgeted,
           expenses: otherFixedBudgeted,
           discretionary: discretionaryBudgeted,
+          oneTime: oneTimeBudgeted,
           total: totalExpensesBudgeted,
           netIncome: netIncomeBudgeted,
           savingsBalance: currentBalance,
@@ -282,6 +285,7 @@ export default function BudgetPage() {
       { label: 'Budgeted Expenses', values: results.map(r => r.budgeted.expenses), isCurrency: true },
       { label: 'Discretionary', values: results.map(r => r.budgeted.discretionary), isCurrency: true },
       { label: 'Total Monthly Cost', values: results.map(r => r.budgeted.total), isCurrency: true, isBold: true },
+      { label: 'One-time Expenses', values: results.map(r => r.budgeted.oneTime), isCurrency: true },
       { label: 'space', values: [] },
       { label: 'Net Income', values: results.map(r => r.budgeted.netIncome), isCurrency: true, isBold: true },
       { label: 'space', values: [] },
@@ -424,14 +428,14 @@ export default function BudgetPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         <IncomeSummaryTable income={activeIncome} />
-        <BudgetedExpensesCard expenses={currentMonthPlannedExpenses} />
+        <BudgetedExpensesCard expenses={expenses} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <HousingBreakdown 
           expenses={currentMonthPlannedExpenses}
         />
-        <SubscriptionManager subscriptions={currentMonthPlannedExpenses.filter(e => e.name.toLowerCase().includes('subscription') && e.frequency !== 'Single')} />
+        <SubscriptionManager subscriptions={currentMonthPlannedExpenses.filter(e => e.expenseType === 'Subscription' && e.frequency !== 'Single')} />
         <CommuterCalculator />
       </div>
 

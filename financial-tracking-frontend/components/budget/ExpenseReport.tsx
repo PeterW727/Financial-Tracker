@@ -50,7 +50,7 @@ export default function ExpenseReport({ onClose, onSuccess, initialData }: Expen
   };
 
   const frequencies: ExpenseFrequency[] = ['Monthly', 'Yearly', 'Quarterly', 'Weekly', 'Daily', 'Single'];
-  const types: ExpenseType[] = ['Fixed', 'Variable'];
+  const types: ExpenseType[] = ['Fixed', 'Variable', 'Housing', 'Subscription', 'Utilities'];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">

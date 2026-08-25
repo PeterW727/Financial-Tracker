@@ -17,8 +17,8 @@ const formatCurrency = (amount: number) => {
 const getMonthlyEquivalent = (e: Expense) => {
   switch (e.frequency) {
     case 'Monthly': return e.amount;
-    case 'Yearly': return e.amount;
-    case 'Quarterly': return e.amount;
+    case 'Yearly': return e.amount / 12;
+    case 'Quarterly': return e.amount / 3;
     case 'Weekly': return e.amount * 4.33;
     case 'Daily': return e.amount * 30;
     case 'Single': return e.amount;
@@ -96,20 +96,34 @@ const ExpenseTable = ({ title, items, isOneTime = false }: { title: string, item
 );
 
 export default function BudgetedExpensesCard({ expenses }: BudgetProgressProps) {
-  const allRecurring = expenses.filter(e => e.frequency !== 'Single');
+  const now = new Date();
+  const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const isActive = (e: Expense) => {
+    const start = parseLocalDate(e.startDate) || new Date(0);
+    const startMonth = new Date(start.getFullYear(), start.getMonth(), 1);
+    let endMonth = null;
+    if (e.endDate) {
+      const end = parseLocalDate(e.endDate);
+      if (end) endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+    }
+    return startMonth <= currentMonth && (!endMonth || endMonth >= currentMonth);
+  };
+
+  const allRecurring = expenses.filter(e => e.frequency !== 'Single' && isActive(e));
   
   const totalFixed = allRecurring
-    .filter(e => e.expenseType === 'Fixed')
+    .filter(e => e.expenseType === 'Fixed' || e.expenseType === 'Housing' || e.expenseType === 'Subscription')
     .reduce((acc, e) => acc + getMonthlyEquivalent(e), 0);
   
   const totalDiscretionary = allRecurring
-    .filter(e => e.expenseType === 'Variable')
+    .filter(e => e.expenseType === 'Variable' || e.expenseType === 'Utilities')
     .reduce((acc, e) => acc + getMonthlyEquivalent(e), 0);
   
   const totalTotal = totalFixed + totalDiscretionary;
 
-  const subExpenses = allRecurring.filter(e => e.name.toLowerCase().includes('subscription'));
-  const otherRecurring = allRecurring.filter(e => !e.name.toLowerCase().includes('subscription'));
+  const subExpenses = allRecurring.filter(e => e.expenseType === 'Subscription');
+  const otherRecurring = allRecurring.filter(e => e.expenseType !== 'Subscription');
 
   const recurringExpenses = [...otherRecurring];
   if (subExpenses.length > 0) {
@@ -118,11 +132,15 @@ export default function BudgetedExpensesCard({ expenses }: BudgetProgressProps) 
       name: 'Subscriptions',
       amount: totalMonthly,
       frequency: 'Monthly',
-      expenseType: 'Fixed',
+      expenseType: 'Subscription',
     });
   }
 
+  // Alphabetical sort
+  recurringExpenses.sort((a, b) => a.name.localeCompare(b.name));
+
   const oneTimeExpenses = expenses.filter(e => e.frequency === 'Single');
+  oneTimeExpenses.sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <div className="space-y-6">
@@ -145,7 +163,7 @@ export default function BudgetedExpensesCard({ expenses }: BudgetProgressProps) 
       </div>
       
       <div className="space-y-4">
-        <ExpenseTable title="Recurring Expenses" items={recurringExpenses} />
+        <ExpenseTable title="Recurring Expenses (This Month)" items={recurringExpenses} />
         <ExpenseTable title="One-time Expenses" items={oneTimeExpenses} isOneTime />
       </div>
     </div>

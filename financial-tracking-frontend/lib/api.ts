@@ -93,11 +93,11 @@ export async function fetchBudgetProfile(): Promise<BudgetProfile | null> {
   }
 }
 
-export async function uploadAmex(file: File): Promise<void> {
+export async function uploadAmex(file: File, isCreditCard: boolean): Promise<void> {
   const formData = new FormData();
   formData.append('file', file);
 
-  const response = await fetch(`${API_BASE_URL}/api/transaction/upload-amex`, {
+  const response = await fetch(`${API_BASE_URL}/api/transaction/upload-amex/${isCreditCard}`, {
     method: 'POST',
     body: formData,
   });
@@ -107,11 +107,11 @@ export async function uploadAmex(file: File): Promise<void> {
   }
 }
 
-export async function uploadChase(file: File): Promise<void> {
+export async function uploadChase(file: File, isCreditCard: boolean): Promise<void> {
   const formData = new FormData();
   formData.append('file', file);
 
-  const response = await fetch(`${API_BASE_URL}/api/transaction/upload-chase`, {
+  const response = await fetch(`${API_BASE_URL}/api/transaction/upload-chase/${isCreditCard}`, {
     method: 'POST',
     body: formData,
   });

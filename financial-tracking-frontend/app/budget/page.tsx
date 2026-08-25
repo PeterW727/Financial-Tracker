@@ -14,7 +14,7 @@ import {
   Income,
   Exception
 } from '@/lib/types';
-import { isSpending, absAmount, isInternalTransfer } from '@/lib/transactionUtils';
+import { isSpending, isIncome, absAmount, isInternalTransfer } from '@/lib/transactionUtils';
 import BudgetedExpensesCard from '@/components/budget/BudgetedExpensesCard';
 import IncomeSummaryTable from '@/components/budget/IncomeSummaryTable';
 import CashFlowProjectionsTable, { ProjectionRow } from '@/components/budget/CashFlowProjectionsTable';
@@ -59,6 +59,37 @@ function doesExpenseOccurInMonth(e: Expense, date: Date): boolean {
     default:
       return true;
   }
+}
+
+interface ProjectionResult {
+  month: string;
+  income: {
+    netBaseSalary: number;
+    netBonus: number;
+    other: number;
+    investment: number;
+    taxRefund: number;
+    total: number;
+  };
+  budgeted: {
+    rent: number;
+    expenses: number;
+    discretionary: number;
+    oneTime: number;
+    total: number;
+    netIncome: number;
+    savingsBalance: number;
+  };
+  actual: {
+    rent: number;
+    originTotals: Record<string, number>;
+    total: number;
+    budget: number;
+    percentOfBudget: number;
+    savedOver: number;
+    netIncome: number;
+    percentSaved: number;
+  };
 }
 
 export default function BudgetPage() {
@@ -132,7 +163,7 @@ export default function BudgetPage() {
     const months = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
     const monthNamesShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     
-    const results = [];
+    const results: ProjectionResult[] = [];
     let currentBalance = 0;
 
     // Get all unique transaction origins that have at least one non-transfer transaction
@@ -192,7 +223,7 @@ export default function BudgetPage() {
         .reduce((acc, e) => acc + e.amount, 0) + oneTimeBudgeted;
 
       const otherFixedBudgeted = monthBudgetedExpenses
-        .filter(e => (e.expenseType === 'Fixed' || e.expenseType === 'Subscription') && !e.name.toLowerCase().includes('rent') && e.expenseType !== 'Housing' && e.frequency !== 'Single')
+        .filter(e => (e.expenseType === 'Fixed' || e.expenseType === 'Subscription') && !e.name.toLowerCase().includes('rent') && e.frequency !== 'Single')
         .reduce((acc, e) => {
           switch (e.frequency) {
             case 'Monthly': return acc + e.amount;
@@ -226,27 +257,28 @@ export default function BudgetPage() {
         return d.getMonth() === monthIndex && d.getFullYear() === year;
       });
 
+      // Separate actual income and spending from transactions to follow the universal rule:
+      // Positive = Income, Negative = Spending
+      const transactionIncome = monthTransactions
+        .filter(t => !t.transactionOrigin && isIncome(t) && !isInternalTransfer(t, exceptions))
+        .reduce((acc, t) => acc + t.amount, 0);
+
       const originTotals: Record<string, number> = {};
       activeOrigins.forEach(origin => {
         originTotals[origin] = monthTransactions
           .filter(t => t.transactionOrigin === origin && !isInternalTransfer(t, exceptions))
-          .reduce((acc, t) => {
-            // Net balance: Spending - Refunds/Credits
-            // For AMEX: amount > 0 is spending, amount < 0 is credit
-            // For others: amount < 0 is spending, amount > 0 is credit
-            return acc + (t.transactionOrigin === 'AMEX' ? t.amount : -t.amount);
-          }, 0);
+          .reduce((acc, t) => acc - t.amount, 0);
       });
       
       const totalExpensesActual = Object.values(originTotals).reduce((acc, val) => acc + val, 0);
 
       const netIncomeBudgeted = totalIncome - totalExpensesBudgeted;
-      const netIncomeActual = totalIncome - totalExpensesActual - rentBudgeted;
+      const netIncomeActual = totalIncome + transactionIncome - totalExpensesActual - rentBudgeted;
       
       // For Savings Balance, we MUST include all expenses (recurring + one-time)
       const balanceImpact = view === 'Budgeted' 
         ? (totalIncome - totalExpensesBudgeted) 
-        : (totalIncome - totalExpensesActual - rentBudgeted);
+        : (totalIncome + transactionIncome - totalExpensesActual - rentBudgeted);
       
       currentBalance += balanceImpact;
 
@@ -255,9 +287,10 @@ export default function BudgetPage() {
         income: {
           netBaseSalary: monthNetIncome,
           netBonus: netBonus,
+          other: view === 'Budgeted' ? 0 : transactionIncome,
           investment: 0,
           taxRefund: 0,
-          total: totalIncome,
+          total: view === 'Budgeted' ? totalIncome : (totalIncome + transactionIncome),
         },
         budgeted: {
           rent: rentBudgeted,
@@ -276,7 +309,7 @@ export default function BudgetPage() {
           percentOfBudget: totalExpensesBudgeted > 0 ? (totalExpensesActual / totalExpensesBudgeted) * 100 : 0,
           savedOver: totalExpensesBudgeted - totalExpensesActual,
           netIncome: netIncomeActual,
-          percentSaved: totalIncome > 0 ? (netIncomeActual / totalIncome) * 100 : 0,
+          percentSaved: (totalIncome + transactionIncome) > 0 ? (netIncomeActual / (totalIncome + transactionIncome)) * 100 : 0,
         }
       });
     }
@@ -287,6 +320,7 @@ export default function BudgetPage() {
       { label: 'Income', values: results.map(() => ''), isHeader: true },
       { label: 'Net Base Salary', values: results.map(r => r.income.netBaseSalary), isCurrency: true },
       { label: 'Net Bonus', values: results.map(r => r.income.netBonus), isCurrency: true },
+      ...(results.some(r => r.income.other > 0) ? [{ label: 'Other Income', values: results.map(r => r.income.other), isCurrency: true }] : []),
       // { label: 'Investment', values: results.map(r => r.income.investment), isCurrency: true },
       // { label: 'Tax Refund', values: results.map(r => r.income.taxRefund), isCurrency: true },
       { label: 'Total Income', values: results.map(r => r.income.total), isCurrency: true, isBold: true },
@@ -308,7 +342,7 @@ export default function BudgetPage() {
       { label: 'Expense', values: results.map(() => ''), isHeader: true },
       ...activeOrigins.map(origin => ({
         label: origin.charAt(0).toUpperCase() + origin.slice(1).toLowerCase(),
-        values: results.map(r => (r.actual as any).originTotals[origin] || 0),
+        values: results.map(r => r.actual.originTotals[origin] || 0),
         isCurrency: true
       })),
       { label: 'Total Expenses', values: results.map(r => r.actual.total), isCurrency: true, isBold: true },

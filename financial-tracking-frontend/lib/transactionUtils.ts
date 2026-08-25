@@ -1,16 +1,12 @@
 import { Transaction, Exception } from './types';
 
 export function isSpending(t: Transaction): boolean {
-  // AMEX: positive = spending, negative = income
-  // Others (CHASE, VENMO, etc.): positive = income, negative = spending
-  if (t.transactionOrigin === 'AMEX') return t.amount > 0;
+  // Universal: positive = income, negative = spending
   return t.amount < 0;
 }
 
 export function isIncome(t: Transaction): boolean {
-  // AMEX: negative = income, positive = spending
-  // Others (CHASE, VENMO, etc.): positive = income, negative = spending
-  if (t.transactionOrigin === 'AMEX') return t.amount < 0;
+  // Universal: positive = income, negative = spending
   return t.amount > 0;
 }
 

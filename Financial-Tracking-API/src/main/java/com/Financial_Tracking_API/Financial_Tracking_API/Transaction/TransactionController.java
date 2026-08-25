@@ -17,26 +17,28 @@ public class TransactionController {
     }
 
     // New Endpoint to handle file uploads
-    @PostMapping("/upload-amex")
-    public ResponseEntity<?> uploadTransactions(@RequestParam("file") MultipartFile file) {
+    @PostMapping("/upload-amex/{isCreditCard}")
+    public ResponseEntity<?> uploadTransactions(@RequestParam("file") MultipartFile file,
+                                                @PathVariable boolean isCreditCard) {
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().body("Please select a file to upload.");
         }
 
         try {
-            transactionService.processAmexFile(file);
+            transactionService.processAmexFile(file, isCreditCard);
             return ResponseEntity.ok("activity.csv uploaded and processed successfully!");
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body("Failed to process file: " + e.getMessage());
         }
     }
-    @PostMapping("/upload-chase")
-    public ResponseEntity<?> uploadChaseTransactions(@RequestParam("file") MultipartFile file) {
+    @PostMapping("/upload-chase/{isCreditCard}")
+    public ResponseEntity<?> uploadChaseTransactions(@RequestParam("file") MultipartFile file,
+                                                     @PathVariable boolean isCreditCard) {
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().body("Please select a file to upload.");
         }
         try {
-            transactionService.processChaseFile(file);
+            transactionService.processChaseFile(file, isCreditCard);
             return ResponseEntity.ok("Chase activity file uploaded and processed successfully!");
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body("Failed to process Chase file: " + e.getMessage());

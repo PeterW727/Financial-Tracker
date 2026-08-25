@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Transaction } from '@/lib/types';
 import { isSpending, absAmount } from '@/lib/transactionUtils';
@@ -15,9 +16,13 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'
 
 export default function SpendingChart({ transactions, timeRange, currentDate }: SpendingChartProps) {
   const router = useRouter();
+  const [ignoreChase, setIgnoreChase] = useState(false);
 
   const categoryTotals = transactions.reduce((acc, t) => {
     if (isSpending(t)) {
+      if (ignoreChase && t.transactionOrigin === 'CHASE') {
+        return acc;
+      }
       acc[t.category] = (acc[t.category] || 0) + absAmount(t);
     }
     return acc;
@@ -45,6 +50,17 @@ export default function SpendingChart({ transactions, timeRange, currentDate }: 
     <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 p-6 h-[400px]">
       <div className="flex justify-between items-center mb-4">
         <h3 className="font-semibold text-zinc-900 dark:text-zinc-50">Spending by Category</h3>
+        <button
+          onClick={() => setIgnoreChase(!ignoreChase)}
+          className="flex items-center gap-2 px-2 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors border border-zinc-200 dark:border-zinc-800 shadow-sm"
+        >
+          <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-colors ${
+            ignoreChase ? 'bg-blue-600 border-blue-600' : 'bg-transparent border-zinc-300'
+          }`}>
+            {ignoreChase && <div className="w-1 h-1 bg-white rounded-full" />}
+          </div>
+          Ignore Chase
+        </button>
       </div>
       {data.length === 0 ? (
         <div className="h-full flex items-center justify-center text-zinc-500">

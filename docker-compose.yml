@@ -1,0 +1,38 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: financial-tracker-db
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: FinancialTracker
+    ports:
+      - "3308:3306"
+    volumes:
+      - db-data:/var/lib/mysql
+
+  api:
+    build:
+      context: ./Financial-Tracking-API
+    container_name: financial-tracker-api
+    depends_on:
+      - db
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/FinancialTracker
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+    ports:
+      - "8081:8080"
+
+  frontend:
+    build:
+      context: ./financial-tracking-frontend
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:8081
+    container_name: financial-tracker-frontend
+    depends_on:
+      - api
+    ports:
+      - "3001:3000"
+
+volumes:
+  db-data:

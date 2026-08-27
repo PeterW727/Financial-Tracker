@@ -5,7 +5,8 @@ import {
   RecurringExpense, 
   BudgetProfile,
   Expense,
-  Income
+  Income,
+  Exception
 } from './types';
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
@@ -25,6 +26,49 @@ export async function fetchTransactions(): Promise<Transaction[]> {
     ...t,
     date: typeof t.date === 'string' && t.date.includes('T') ? t.date.split('T')[0] : t.date
   }));
+}
+
+export async function fetchExceptions(): Promise<Exception[]> {
+  return handleResponse<Exception[]>(await fetch(`${API_BASE_URL}/api/exceptions`));
+}
+
+export async function saveException(exception: Exception): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/exceptions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(exception),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || 'Failed to save exception');
+  }
+}
+
+export async function updateException(exception: Exception): Promise<void> {
+  if (!exception.exceptionId) throw new Error('Exception ID is required for update');
+  const response = await fetch(`${API_BASE_URL}/api/exceptions/update`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(exception),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || 'Failed to update exception');
+  }
+}
+
+export async function deleteException(exceptionId: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/exceptions/${exceptionId}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || 'Failed to delete exception');
+  }
 }
 
 export async function fetchBudgetCategories(): Promise<BudgetCategory[]> {
@@ -49,11 +93,11 @@ export async function fetchBudgetProfile(): Promise<BudgetProfile | null> {
   }
 }
 
-export async function uploadAmex(file: File): Promise<void> {
+export async function uploadAmex(file: File, isCreditCard: boolean): Promise<void> {
   const formData = new FormData();
   formData.append('file', file);
 
-  const response = await fetch(`${API_BASE_URL}/api/transaction/upload-amex`, {
+  const response = await fetch(`${API_BASE_URL}/api/transaction/upload-amex/${isCreditCard}`, {
     method: 'POST',
     body: formData,
   });
@@ -63,11 +107,11 @@ export async function uploadAmex(file: File): Promise<void> {
   }
 }
 
-export async function uploadChase(file: File): Promise<void> {
+export async function uploadChase(file: File, isCreditCard: boolean): Promise<void> {
   const formData = new FormData();
   formData.append('file', file);
 
-  const response = await fetch(`${API_BASE_URL}/api/transaction/upload-chase`, {
+  const response = await fetch(`${API_BASE_URL}/api/transaction/upload-chase/${isCreditCard}`, {
     method: 'POST',
     body: formData,
   });

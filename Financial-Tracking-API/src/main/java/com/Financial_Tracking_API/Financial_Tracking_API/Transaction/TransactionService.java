@@ -24,7 +24,7 @@ public class TransactionService {
     }
 
     // Updated method to process the Excel file
-    public void processAmexFile(MultipartFile file) throws Exception {
+    public void processAmexFile(MultipartFile file, boolean isCreditCard) throws Exception {
         List<Transaction> transactions = new ArrayList<>();
         DateTimeFormatter stringDateFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
 
@@ -78,7 +78,7 @@ public class TransactionService {
                     Transaction transaction = Transaction.builder()
                             .date(date)
                             .description(description)
-                            .amount(amount)
+                            .amount(isCreditCard ? -amount : amount)
                             .referenceNo(referenceNo)
                             .category(category)
                             .transactionOrigin(TransactionOrigin.AMEX)
@@ -97,7 +97,7 @@ public class TransactionService {
         }
     }
 
-    public void processChaseFile(MultipartFile file) throws Exception {
+    public void processChaseFile(MultipartFile file, boolean isCreditCard) throws Exception {
         List<Transaction> transactions = new ArrayList<>();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
 
@@ -134,7 +134,7 @@ public class TransactionService {
                         Transaction transaction = Transaction.builder()
                                 .date(date)
                                 .description(description)
-                                .amount(amount)
+                                .amount(isCreditCard ? -amount : amount)
                                 .category("Chase")
                                 .referenceNo(null) // Ensuring this stays null
                                 .transactionOrigin(TransactionOrigin.CHASE)

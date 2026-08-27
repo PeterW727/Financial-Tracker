@@ -5,7 +5,10 @@ import lombok.Getter;
 @Getter
 public enum ExpenseType {
     FIXED("Fixed"),
-    VARIABLE("Variable");
+    VARIABLE("Variable"),
+    HOUSING("Housing"),
+    SUBSCRIPTION("Subscription"),
+    UTILITIES("Utilities");
 
     private final String displayName;
 

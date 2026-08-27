@@ -1,10 +1,10 @@
 'use client';
 
-import { Suspense, useState, useEffect, useMemo, useRef } from 'react';
+import { Suspense, useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { fetchTransactions } from '@/lib/api';
+import { fetchTransactions, fetchExceptions } from '@/lib/api';
 import { parseLocalDate } from '@/lib/dateUtils';
-import { Transaction } from '@/lib/types';
+import { Transaction, Exception } from '@/lib/types';
 import { isSpending, isIncome, absAmount, isInternalTransfer } from '@/lib/transactionUtils';
 import { 
   ArrowLeft, 
@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { TimeRange } from '@/lib/types';
+import AutopayToggle from '@/components/AutopayToggle';
 
 const categoryIcons: Record<string, any> = {
   'Food': Utensils,
@@ -45,9 +46,25 @@ function TransactionsContent() {
   const router = useRouter();
   
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [exceptions, setExceptions] = useState<Exception[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [ignoreAutopay, setIgnoreAutopay] = useState(true);
+
+  const loadData = useCallback(async () => {
+    try {
+      const [tData, exData] = await Promise.all([
+        fetchTransactions(),
+        fetchExceptions()
+      ]);
+      setTransactions(tData);
+      setExceptions(exData);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
   
   // Sorting state
   const [sortBy, setSortBy] = useState<'date' | 'category' | 'amount'>('date');
@@ -95,57 +112,62 @@ function TransactionsContent() {
       isFirstRender.current = false;
       return;
     }
+
     // Keep local state in sync if URL changes externally (e.g. browser back button)
-    const range = searchParams.get('range') as TimeRange | null;
-    if (range && (range === 'week' || range === 'month' || range === 'ytd')) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTimeRange(prev => prev !== range ? range : prev);
-    }
-    
-    const baseDate = searchParams.get('baseDate');
-    if (baseDate) {
-      const parsedDate = parseLocalDate(baseDate);
-      if (parsedDate && !isNaN(parsedDate.getTime())) {
-        setCurrentDate(prev => prev.getTime() !== parsedDate.getTime() ? parsedDate : prev);
+    // We use a timer to avoid synchronous setState during effect which triggers ESLint warning
+    const timer = setTimeout(() => {
+      const range = searchParams.get('range') as TimeRange | null;
+      if (range && (range === 'week' || range === 'month' || range === 'ytd')) {
+        if (timeRange !== range) {
+          setTimeRange(range);
+        }
       }
-    }
+      
+      const baseDate = searchParams.get('baseDate');
+      if (baseDate) {
+        const parsedDate = parseLocalDate(baseDate);
+        if (parsedDate && !isNaN(parsedDate.getTime())) {
+          if (currentDate.getTime() !== parsedDate.getTime()) {
+            setCurrentDate(parsedDate);
+          }
+        }
+      }
 
-    const date = searchParams.get('date');
-    if (date !== null) {
-      setDateFilter(prev => prev !== date ? date : prev);
-    }
+      const date = searchParams.get('date');
+      if (date !== null) {
+        if (dateFilter !== date) {
+          setDateFilter(date);
+        }
+      }
 
-    const cat = searchParams.get('category');
-    if (cat !== null) {
-      setCategoryFilter(prev => prev !== cat ? cat : prev);
-    }
+      const cat = searchParams.get('category');
+      if (cat !== null) {
+        if (categoryFilter !== cat) {
+          setCategoryFilter(cat);
+        }
+      }
 
-    const type = searchParams.get('type') as TransactionType | null;
-    if (type && (type === 'all' || type === 'spending' || type === 'income')) {
-      setTypeFilter(prev => prev !== type ? type : prev);
-    }
-  }, [searchParams]);
+      const type = searchParams.get('type') as TransactionType | null;
+      if (type && (type === 'all' || type === 'spending' || type === 'income')) {
+        if (typeFilter !== type) {
+          setTypeFilter(type);
+        }
+      }
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [searchParams, timeRange, currentDate, dateFilter, categoryFilter, typeFilter]);
 
   useEffect(() => {
-    async function load() {
-      try {
-        const data = await fetchTransactions();
-        setTransactions(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
+    loadData();
+  }, [loadData]);
 
   const filteredTransactions = useMemo(() => {
     const filtered = transactions.filter(t => {
       const matchesSearch = (t.description || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
                            (t.category && t.category.toLowerCase().includes(searchTerm.toLowerCase()));
       
-      if (ignoreAutopay && isInternalTransfer(t)) {
+      if (ignoreAutopay && isInternalTransfer(t, exceptions)) {
         return false;
       }
 
@@ -199,7 +221,7 @@ function TransactionsContent() {
       }
       return sortOrder === 'asc' ? comparison : -comparison;
     });
-  }, [transactions, searchTerm, dateFilter, categoryFilter, ignoreAutopay, timeRange, currentDate, typeFilter, sortBy, sortOrder]);
+  }, [transactions, searchTerm, dateFilter, categoryFilter, ignoreAutopay, timeRange, currentDate, typeFilter, sortBy, sortOrder, exceptions]);
 
   const categories = useMemo(() => {
     const cats = new Set(transactions.map(t => t.category).filter(Boolean));
@@ -327,21 +349,11 @@ function TransactionsContent() {
 
               <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
                 <div className="flex flex-wrap items-center gap-4">
-                  <button
-                    onClick={() => setIgnoreAutopay(!ignoreAutopay)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-colors ${
-                      ignoreAutopay 
-                      ? 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400' 
-                      : 'bg-white border-zinc-200 text-zinc-600 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-400 hover:bg-zinc-50'
-                    }`}
-                  >
-                    <div className={`w-3.5 h-3.5 rounded-sm border flex items-center justify-center transition-colors ${
-                      ignoreAutopay ? 'bg-blue-600 border-blue-600' : 'bg-transparent border-zinc-300'
-                    }`}>
-                      {ignoreAutopay && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
-                    </div>
-                    Ignore Autopay
-                  </button>
+                  <AutopayToggle 
+                    ignoreAutopay={ignoreAutopay} 
+                    onToggle={setIgnoreAutopay} 
+                    onUpdate={loadData}
+                  />
 
                   <div className="flex items-center bg-zinc-50 dark:bg-zinc-800 p-1 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm">
                     <button

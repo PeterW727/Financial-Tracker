@@ -46,7 +46,7 @@ export interface Transaction {
 export type TimeRange = 'week' | 'month' | 'ytd';
 
 export type ExpenseFrequency = 'Monthly' | 'Yearly' | 'Quarterly' | 'Weekly' | 'Daily' | 'Single';
-export type ExpenseType = 'Fixed' | 'Variable';
+export type ExpenseType = 'Fixed' | 'Variable' | 'Housing' | 'Subscription' | 'Utilities';
 
 export interface Expense {
   expenseId?: number;
@@ -67,4 +67,10 @@ export interface Income {
   bonusPayoutDate: string | Date | null;
   startDate: string | Date;
   endDate?: string | Date | null;
+}
+
+export interface Exception {
+  exceptionId?: number;
+  exceptionName: string;
+  regexRule: string;
 }

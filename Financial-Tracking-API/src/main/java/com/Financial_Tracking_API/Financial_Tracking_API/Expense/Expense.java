@@ -19,8 +19,10 @@ public class Expense {
     private String name;
     private Double amount;
     @Enumerated(EnumType.STRING)
+    @Column(length = 20)
     private Frequency frequency;
     @Enumerated(EnumType.STRING)
+    @Column(length = 20)
     private ExpenseType expenseType;
     private LocalDate startDate;
     private LocalDate endDate;

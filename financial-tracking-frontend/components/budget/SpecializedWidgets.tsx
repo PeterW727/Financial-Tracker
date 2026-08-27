@@ -15,23 +15,31 @@ export function HousingBreakdown({ expenses }: HousingBreakdownProps) {
   const formatCurrency = (val: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
   
   const housingExpenses = expenses.filter(e => 
-    e.name.toLowerCase().includes('rent') || 
-    e.name.toLowerCase().includes('utility') || 
-    e.name.toLowerCase().includes('utilities')
+    e.expenseType === 'Housing' || 
+    e.expenseType === 'Utilities'
   );
 
+  const getMonthlyEquivalent = (e: Expense) => {
+    switch (e.frequency) {
+      case 'Monthly': return e.amount;
+      case 'Yearly': return e.amount / 12;
+      case 'Quarterly': return e.amount / 3;
+      case 'Weekly': return e.amount * 4.33;
+      case 'Daily': return e.amount * 30;
+      default: return e.amount;
+    }
+  };
+
   const recurringRentSum = housingExpenses
-    .filter(e => e.name.toLowerCase().includes('rent') && e.frequency !== 'Single')
-    .reduce((acc, e) => acc + e.amount, 0);
+    .filter(e => (e.name.toLowerCase().includes('rent') || e.expenseType === 'Housing') && e.frequency !== 'Single')
+    .reduce((acc, e) => acc + getMonthlyEquivalent(e), 0);
   
   const singleHousingExpenses = housingExpenses.filter(e => e.frequency === 'Single');
   
   const recurringUtilities = housingExpenses
-    .filter(e => (e.name.toLowerCase().includes('utility') || e.name.toLowerCase().includes('utilities')) && e.frequency !== 'Single')
-    .reduce((acc, e) => acc + e.amount, 0);
+    .filter(e => e.expenseType === 'Utilities' && e.frequency !== 'Single')
+    .reduce((acc, e) => acc + getMonthlyEquivalent(e), 0);
 
-  const singleHousingSum = singleHousingExpenses.reduce((acc, e) => acc + e.amount, 0);
-  
   const perPersonRent = recurringRentSum;
   
   return (
@@ -65,7 +73,7 @@ export function HousingBreakdown({ expenses }: HousingBreakdownProps) {
         <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
           <span className="text-sm font-semibold">Total Monthly Cost</span>
           <span className="text-base font-bold text-blue-600">
-            {formatCurrency(perPersonRent + recurringUtilities + singleHousingSum)}
+            {formatCurrency(perPersonRent + recurringUtilities)}
           </span>
         </div>
       </div>
@@ -76,16 +84,28 @@ export function HousingBreakdown({ expenses }: HousingBreakdownProps) {
 export function SubscriptionManager({ subscriptions }: SubscriptionManagerProps) {
   const formatCurrency = (val: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
   
+  const filteredSubscriptions = subscriptions.filter(s => s.expenseType === 'Subscription');
+
   const getMonthly = (s: Expense) => {
-    if (s.frequency === 'Monthly') return s.amount;
-    if (s.frequency === 'Yearly') return s.amount / 12;
-    return s.amount;
+    switch (s.frequency) {
+      case 'Monthly': return s.amount;
+      case 'Yearly': return s.amount / 12;
+      case 'Quarterly': return s.amount / 3;
+      case 'Weekly': return s.amount * 4.33;
+      case 'Daily': return s.amount * 30;
+      default: return s.amount;
+    }
   };
 
   const getYearly = (s: Expense) => {
-    if (s.frequency === 'Yearly') return s.amount;
-    if (s.frequency === 'Monthly') return s.amount * 12;
-    return s.amount * 12;
+    switch (s.frequency) {
+      case 'Yearly': return s.amount;
+      case 'Monthly': return s.amount * 12;
+      case 'Quarterly': return s.amount * 4;
+      case 'Weekly': return s.amount * 52;
+      case 'Daily': return s.amount * 365;
+      default: return s.amount * 12;
+    }
   };
 
   return (
@@ -100,7 +120,7 @@ export function SubscriptionManager({ subscriptions }: SubscriptionManagerProps)
           <span className="text-right">Monthly</span>
           <span className="text-right">Yearly</span>
         </div>
-        {subscriptions.map((sub) => (
+        {filteredSubscriptions.map((sub) => (
           <div key={sub.expenseId || sub.name} className="grid grid-cols-3 items-center py-1">
             <span className="text-sm text-zinc-600 dark:text-zinc-400 truncate pr-2">
               {sub.name.replace(/^Subscriptions?\s*-\s*/i, '')}
@@ -117,7 +137,7 @@ export function SubscriptionManager({ subscriptions }: SubscriptionManagerProps)
       <div className="mt-6 pt-4 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
         <span className="text-sm font-semibold">Total Monthly</span>
         <span className="text-base font-bold text-purple-600">
-          {formatCurrency(subscriptions.reduce((acc, s) => acc + getMonthly(s), 0))}
+          {formatCurrency(filteredSubscriptions.reduce((acc, s) => acc + getMonthly(s), 0))}
         </span>
       </div>
     </div>

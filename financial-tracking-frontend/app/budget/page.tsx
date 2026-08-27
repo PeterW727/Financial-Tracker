@@ -4,15 +4,17 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { 
   fetchTransactions, 
   fetchExpenses, 
-  fetchIncome 
+  fetchIncome,
+  fetchExceptions
 } from '@/lib/api';
 import { parseLocalDate } from '@/lib/dateUtils';
 import { 
   Transaction, 
   Expense, 
-  Income 
+  Income,
+  Exception
 } from '@/lib/types';
-import { isSpending, absAmount, isInternalTransfer } from '@/lib/transactionUtils';
+import { isSpending, isIncome, absAmount, isInternalTransfer } from '@/lib/transactionUtils';
 import BudgetedExpensesCard from '@/components/budget/BudgetedExpensesCard';
 import IncomeSummaryTable from '@/components/budget/IncomeSummaryTable';
 import CashFlowProjectionsTable, { ProjectionRow } from '@/components/budget/CashFlowProjectionsTable';
@@ -59,10 +61,42 @@ function doesExpenseOccurInMonth(e: Expense, date: Date): boolean {
   }
 }
 
+interface ProjectionResult {
+  month: string;
+  income: {
+    netBaseSalary: number;
+    netBonus: number;
+    other: number;
+    investment: number;
+    taxRefund: number;
+    total: number;
+  };
+  budgeted: {
+    rent: number;
+    expenses: number;
+    discretionary: number;
+    oneTime: number;
+    total: number;
+    netIncome: number;
+    savingsBalance: number;
+  };
+  actual: {
+    rent: number;
+    originTotals: Record<string, number>;
+    total: number;
+    budget: number;
+    percentOfBudget: number;
+    savedOver: number;
+    netIncome: number;
+    percentSaved: number;
+  };
+}
+
 export default function BudgetPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [incomeRecords, setIncomeRecords] = useState<Income[]>([]);
+  const [exceptions, setExceptions] = useState<Exception[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showExpenseForm, setShowExpenseForm] = useState(false);
@@ -73,14 +107,16 @@ export default function BudgetPage() {
   const loadData = useCallback(async (showLoading = true) => {
     try {
       if (showLoading) setLoading(true);
-      const [tData, eData, iData] = await Promise.all([
+      const [tData, eData, iData, exData] = await Promise.all([
         fetchTransactions(),
         fetchExpenses(),
         fetchIncome(),
+        fetchExceptions(),
       ]);
       setTransactions(tData);
       setExpenses(eData);
       setIncomeRecords(iData);
+      setExceptions(exData);
       setError(null);
     } catch (err) {
       console.error(err);
@@ -127,8 +163,16 @@ export default function BudgetPage() {
     const months = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
     const monthNamesShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     
-    const results = [];
-    let currentBalance = 10841.84;
+    const results: ProjectionResult[] = [];
+    let currentBalance = 0;
+
+    // Get all unique transaction origins that have at least one non-transfer transaction
+    const activeOrigins = Array.from(new Set(
+      transactions
+        .filter(t => !isInternalTransfer(t, exceptions))
+        .map(t => t.transactionOrigin)
+        .filter(Boolean)
+    )).sort();
 
     for (let i = 0; i < months.length; i++) {
       const year = i < 6 ? 2026 : 2027;
@@ -170,12 +214,16 @@ export default function BudgetPage() {
       // Expenses - Budgeted
       const monthBudgetedExpenses = expenses.filter(e => doesExpenseOccurInMonth(e, date));
 
-      const rentBudgeted = monthBudgetedExpenses
-        .filter(e => e.name.toLowerCase().includes('rent'))
+      const oneTimeBudgeted = monthBudgetedExpenses
+        .filter(e => e.frequency === 'Single')
         .reduce((acc, e) => acc + e.amount, 0);
 
+      const rentBudgeted = monthBudgetedExpenses
+        .filter(e => (e.expenseType === 'Housing' || e.name.toLowerCase().includes('rent')) && e.frequency !== 'Single')
+        .reduce((acc, e) => acc + e.amount, 0) + oneTimeBudgeted;
+
       const otherFixedBudgeted = monthBudgetedExpenses
-        .filter(e => e.expenseType === 'Fixed' && !e.name.toLowerCase().includes('rent'))
+        .filter(e => (e.expenseType === 'Fixed' || e.expenseType === 'Subscription') && !e.name.toLowerCase().includes('rent') && e.frequency !== 'Single')
         .reduce((acc, e) => {
           switch (e.frequency) {
             case 'Monthly': return acc + e.amount;
@@ -183,13 +231,12 @@ export default function BudgetPage() {
             case 'Quarterly': return acc + e.amount;
             case 'Weekly': return acc + (e.amount * 4.33);
             case 'Daily': return acc + (e.amount * 30);
-            case 'Single': return acc + e.amount;
             default: return acc;
           }
         }, 0);
         
       const discretionaryBudgeted = monthBudgetedExpenses
-        .filter(e => e.expenseType === 'Variable')
+        .filter(e => (e.expenseType === 'Variable' || e.expenseType === 'Utilities') && e.frequency !== 'Single')
         .reduce((acc, e) => {
           switch (e.frequency) {
             case 'Monthly': return acc + e.amount;
@@ -197,15 +244,11 @@ export default function BudgetPage() {
             case 'Quarterly': return acc + e.amount;
             case 'Weekly': return acc + (e.amount * 4.33);
             case 'Daily': return acc + (e.amount * 30);
-            case 'Single': return acc + e.amount;
             default: return acc;
           }
         }, 0);
 
       const totalExpensesBudgeted = rentBudgeted + otherFixedBudgeted + discretionaryBudgeted;
-      
-      // For Savings Balance, we still need to subtract EVERYTHING including one-time
-      const totalAllBudgetedExpenses = rentBudgeted + otherFixedBudgeted + discretionaryBudgeted;
 
       // Expenses - Actual
       const monthTransactions = transactions.filter(t => {
@@ -214,23 +257,28 @@ export default function BudgetPage() {
         return d.getMonth() === monthIndex && d.getFullYear() === year;
       });
 
-      const amexActual = monthTransactions
-        .filter(t => t.transactionOrigin === 'AMEX' && isSpending(t) && !isInternalTransfer(t))
-        .reduce((acc, t) => acc + absAmount(t), 0);
+      // Separate actual income and spending from transactions to follow the universal rule:
+      // Positive = Income, Negative = Spending
+      const transactionIncome = monthTransactions
+        .filter(t => !t.transactionOrigin && isIncome(t) && !isInternalTransfer(t, exceptions))
+        .reduce((acc, t) => acc + t.amount, 0);
+
+      const originTotals: Record<string, number> = {};
+      activeOrigins.forEach(origin => {
+        originTotals[origin] = monthTransactions
+          .filter(t => t.transactionOrigin === origin && !isInternalTransfer(t, exceptions))
+          .reduce((acc, t) => acc - t.amount, 0);
+      });
       
-      const chaseActual = monthTransactions
-        .filter(t => t.transactionOrigin === 'CHASE' && isSpending(t) && !isInternalTransfer(t))
-        .reduce((acc, t) => acc + absAmount(t), 0);
-      
-      const totalExpensesActual = amexActual + chaseActual;
+      const totalExpensesActual = Object.values(originTotals).reduce((acc, val) => acc + val, 0);
 
       const netIncomeBudgeted = totalIncome - totalExpensesBudgeted;
-      const netIncomeActual = totalIncome - totalExpensesActual - rentBudgeted;
+      const netIncomeActual = totalIncome + transactionIncome - totalExpensesActual - rentBudgeted;
       
       // For Savings Balance, we MUST include all expenses (recurring + one-time)
       const balanceImpact = view === 'Budgeted' 
-        ? (totalIncome - totalAllBudgetedExpenses) 
-        : (totalIncome - totalExpensesActual - rentBudgeted);
+        ? (totalIncome - totalExpensesBudgeted) 
+        : (totalIncome + transactionIncome - totalExpensesActual - rentBudgeted);
       
       currentBalance += balanceImpact;
 
@@ -239,28 +287,29 @@ export default function BudgetPage() {
         income: {
           netBaseSalary: monthNetIncome,
           netBonus: netBonus,
+          other: view === 'Budgeted' ? 0 : transactionIncome,
           investment: 0,
           taxRefund: 0,
-          total: totalIncome,
+          total: view === 'Budgeted' ? totalIncome : (totalIncome + transactionIncome),
         },
         budgeted: {
           rent: rentBudgeted,
           expenses: otherFixedBudgeted,
           discretionary: discretionaryBudgeted,
+          oneTime: oneTimeBudgeted,
           total: totalExpensesBudgeted,
           netIncome: netIncomeBudgeted,
           savingsBalance: currentBalance,
         },
         actual: {
           rent: rentBudgeted,
-          amex: amexActual,
-          chase: chaseActual,
+          originTotals,
           total: totalExpensesActual,
           budget: totalExpensesBudgeted,
           percentOfBudget: totalExpensesBudgeted > 0 ? (totalExpensesActual / totalExpensesBudgeted) * 100 : 0,
           savedOver: totalExpensesBudgeted - totalExpensesActual,
           netIncome: netIncomeActual,
-          percentSaved: totalIncome > 0 ? (netIncomeActual / totalIncome) * 100 : 0,
+          percentSaved: (totalIncome + transactionIncome) > 0 ? (netIncomeActual / (totalIncome + transactionIncome)) * 100 : 0,
         }
       });
     }
@@ -271,6 +320,7 @@ export default function BudgetPage() {
       { label: 'Income', values: results.map(() => ''), isHeader: true },
       { label: 'Net Base Salary', values: results.map(r => r.income.netBaseSalary), isCurrency: true },
       { label: 'Net Bonus', values: results.map(r => r.income.netBonus), isCurrency: true },
+      ...(results.some(r => r.income.other > 0) ? [{ label: 'Other Income', values: results.map(r => r.income.other), isCurrency: true }] : []),
       // { label: 'Investment', values: results.map(r => r.income.investment), isCurrency: true },
       // { label: 'Tax Refund', values: results.map(r => r.income.taxRefund), isCurrency: true },
       { label: 'Total Income', values: results.map(r => r.income.total), isCurrency: true, isBold: true },
@@ -290,8 +340,11 @@ export default function BudgetPage() {
 
     const actualExpenseRows: ProjectionRow[] = [
       { label: 'Expense', values: results.map(() => ''), isHeader: true },
-      { label: 'Amex Gold', values: results.map(r => r.actual.amex), isCurrency: true },
-      { label: 'Chase', values: results.map(r => r.actual.chase), isCurrency: true },
+      ...activeOrigins.map(origin => ({
+        label: origin.charAt(0).toUpperCase() + origin.slice(1).toLowerCase(),
+        values: results.map(r => r.actual.originTotals[origin] || 0),
+        isCurrency: true
+      })),
       { label: 'Total Expenses', values: results.map(r => r.actual.total), isCurrency: true, isBold: true },
       { label: 'Budget', values: results.map(r => r.actual.budget), isCurrency: true },
       { label: '% of Budget', values: results.map(r => r.actual.percentOfBudget), isPercentage: true, colorLogic: 'percentage' },
@@ -424,14 +477,14 @@ export default function BudgetPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         <IncomeSummaryTable income={activeIncome} />
-        <BudgetedExpensesCard expenses={currentMonthPlannedExpenses} />
+        <BudgetedExpensesCard expenses={expenses} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <HousingBreakdown 
           expenses={currentMonthPlannedExpenses}
         />
-        <SubscriptionManager subscriptions={currentMonthPlannedExpenses.filter(e => e.name.toLowerCase().includes('subscription') && e.frequency !== 'Single')} />
+        <SubscriptionManager subscriptions={currentMonthPlannedExpenses.filter(e => e.expenseType === 'Subscription' && e.frequency !== 'Single')} />
         <CommuterCalculator />
       </div>
 
